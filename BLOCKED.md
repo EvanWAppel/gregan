@@ -1,4 +1,4 @@
 # BLOCKED — what I need from Evan
 
-- [ ] 🔴 **Merge the vertical-slice PR** — Railway project `enchanting-flexibility` / service `gregan` is linked to this repo, but the first deploy **failed**: `main` only had `BLOCKED.md` + `CLAUDE.md`, so Railpack had nothing to build. Merge the slice PR (Dockerfile + inspections app). Live URL after rebuild: https://gregan-production.up.railway.app
-- [ ] 🟡 **Portfolio + custom domain (DEPLOY-06)** — register `gregan` in portfolio `projects.toml` and optionally wire `gregan.evanappel.me`. No billed secrets for the slice.
+- [ ] 🟡 **Free Census API key for `CENSUS_API_KEY` (TOPIC-demographics)** — request at https://api.census.gov/data/key_signup.html, drop the key into `gregan/.env` as `CENSUS_API_KEY=…` (and the Railway service variable of the same name). It is a free rate-limit token, not a billed/personal-spend secret, so it clears the personal-key guardrail.
+- [ ] 🟡 **Portfolio + custom domain (DEPLOY-06)** — register `gregan` in portfolio `projects.toml` and optionally wire `gregan.evanappel.me`. No billed secrets. Live app is already at https://gregan-production.up.railway.app

@@ -15,17 +15,19 @@ st.set_page_config(
 )
 
 pages = [
-    st.Page(
-        "views/restaurant_inspections.py",
-        title="Restaurant Inspections",
-        icon="🍽️",
-        default=True,
-    ),
-    st.Page(
-        "views/wildfire.py",
-        title="Wildfire",
-        icon="🔥",
-    ),
+    st.Page("views/overview.py", title="Overview", icon="⛰️", default=True),
+    st.Page("views/wildfire.py", title="Wildfire", icon="🔥"),
+    st.Page("views/weather.py", title="Weather", icon="🌧️"),
+    st.Page("views/river.py", title="River", icon="🌊"),
+    st.Page("views/groundwater.py", title="Groundwater", icon="💧"),
+    st.Page("views/air_quality.py", title="Air Quality", icon="💨"),
+    st.Page("views/earthquakes.py", title="Earthquakes", icon="🌍"),
+    st.Page("views/transit.py", title="Transit", icon="🚌"),
+    st.Page("views/restaurant_inspections.py", title="Restaurant Inspections", icon="🍽️"),
+    st.Page("views/parks.py", title="Parks", icon="🌳"),
+    st.Page("views/trees.py", title="Street Trees", icon="🌲"),
+    st.Page("views/zoning.py", title="Zoning", icon="🗺️"),
+    st.Page("views/crime.py", title="Crime", icon="🚓"),
 ]
 
 st.navigation(pages).run()

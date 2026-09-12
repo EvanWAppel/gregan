@@ -52,6 +52,7 @@ FIRE_PERIMETERS = (
 FHSZ_MAPSERVER = "https://services.gis.ca.gov/arcgis/rest/services/Environment/Fire_Severity_Zones/MapServer"
 
 # --- Federal NTD transit (Socrata) ---
+SOCRATA_APP_TOKEN: str | None = None  # optional; NTD is anonymous-ok
 NTD_RIDERSHIP = ("data.transportation.gov", "8bui-9xvu")  # VERIFIED
 NTD_AGENCIES = {
     "Foothill Transit": "Foothill Transit",  # NTD 90146
@@ -60,7 +61,9 @@ NTD_AGENCIES = {
 
 # --- CA DWR groundwater (CKAN datastore — net-new fetch_ckan) ---
 DWR_GW_STATIONS_RESOURCE = "af157380-fb42-4abf-b72a-6f9f98868077"  # VERIFIED — 47,624 stations
+DWR_GW_MEASUREMENTS_RESOURCE = "bfa9f262-24a1-45bd-8dc8-138bc8107266"  # VERIFIED — periodic levels
 DWR_BASIN_NAME = "San Gabriel Valley"  # VERIFIED — Bulletin-118 name; 80 stations (not "Main San Gabriel")
+DWR_BASIN_CODE = "4-013"  # VERIFIED — Bulletin-118 basin code on the measurements resource
 
 # --- CA DOJ OpenJustice Crimes & Clearances (agency-annual; no incident map) ---
 CA_DOJ_CRIME_CSV = (
@@ -74,7 +77,10 @@ CA_DOJ_ORI = "CA0192600"  # Glendora PD; not a column in the annual CSV
 # --- Year caps (lean builds) — tune per source once fetched ---
 CRIME_START_YEAR = 2000
 AQS_START_YEAR = 2015
+AQS_END_YEAR = 2026  # inclusive; builder loops start..end
 NTD_START = "2015-01-01"
+USGS_START = "1970-01-01"
+EARTHQUAKE_START = "2000-01-01"
 
 # CONFIG-02 closed 2026-09-12 — former LEADs are recorded above. Empty on purpose
 # so a leftover id is obvious.

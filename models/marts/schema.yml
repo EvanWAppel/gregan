@@ -43,3 +43,35 @@ models:
       - name: objectid
         data_tests:
           - not_null
+  - name: mart_weather_annual
+    columns:
+      - name: year
+        data_tests: [not_null, unique]
+  - name: mart_river_daily
+    columns:
+      - name: obs_date
+        data_tests: [not_null]
+  - name: mart_gw_stations
+    columns:
+      - name: site_code
+        data_tests: [not_null, unique]
+  - name: mart_transit_monthly
+    columns:
+      - name: ridership_month
+        data_tests: [not_null, unique]
+  - name: mart_parks
+    columns:
+      - name: acres
+        data_tests: [not_null]
+  - name: mart_trees_summary
+    columns:
+      - name: total_trees
+        data_tests: [not_null]
+  - name: mart_earthquakes
+    columns:
+      - name: event_id
+        data_tests: [not_null, unique]
+  - name: mart_crime_annual
+    columns:
+      - name: year
+        data_tests: [not_null, unique]

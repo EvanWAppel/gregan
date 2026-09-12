@@ -47,3 +47,35 @@ models:
           - accepted_values:
               arguments:
                 values: ["SRA", "LRA"]
+  - name: stg_weather
+    columns:
+      - name: obs_date
+        data_tests: [not_null]
+  - name: stg_river
+    columns:
+      - name: obs_date
+        data_tests: [not_null]
+  - name: stg_gw_stations
+    columns:
+      - name: site_code
+        data_tests: [not_null, unique]
+  - name: stg_ntd_ridership
+    columns:
+      - name: ridership_month
+        data_tests: [not_null]
+      - name: upt
+        data_tests: [not_null]
+  - name: stg_parks
+    columns:
+      - name: name
+        data_tests: [not_null]
+      - name: acres
+        data_tests: [not_null]
+  - name: stg_earthquakes
+    columns:
+      - name: event_id
+        data_tests: [not_null, unique]
+  - name: stg_crime
+    columns:
+      - name: year
+        data_tests: [not_null, unique]

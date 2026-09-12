@@ -16,11 +16,14 @@ Usage:
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import os
 import socket
 import tempfile
+import urllib.parse
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -55,6 +58,276 @@ CKAN_PAGE_SIZE = 32_000
 CKAN_TIMEOUT = 180
 ARCGIS_PAGE = 2000
 ARCGIS_TIMEOUT = 180
+SODA_PAGE_SIZE = 50_000
+SODA_TIMEOUT = 180
+AQS_AIRDATA = "https://aqs.epa.gov/aqsweb/airdata"
+NCEI_GHCN_ACCESS = (
+    "https://www.ncei.noaa.gov/data/"
+    "global-historical-climatology-network-daily/access"
+)
+
+
+# --------------------------------------------------------------------------- #
+# Socrata / SODA (federal NTD still uses this; LA County does NOT)             #
+# --------------------------------------------------------------------------- #
+def socrata_resource_url(domain: str, dataset_id: str) -> str:
+    """SODA JSON resource endpoint for a dataset."""
+    return f"https://{domain}/resource/{dataset_id}.json"
+
+
+def socrata_csv_url(domain: str, dataset_id: str) -> str:
+    """Bulk CSV-export endpoint — full dataset, no filtering."""
+    return f"https://{domain}/api/views/{dataset_id}/rows.csv?accessType=DOWNLOAD"
+
+
+def socrata_resource_csv_url(
+    domain: str,
+    dataset_id: str,
+    where: str | None = None,
+    select: str | None = None,
+    order: str | None = None,
+    limit: int = 2_000_000,
+) -> str:
+    """SODA resource ``.csv`` endpoint with SoQL, URL-encoded for DuckDB httpfs."""
+    params: dict = {"$limit": limit}
+    if where:
+        params["$where"] = where
+    if select:
+        params["$select"] = select
+    if order:
+        params["$order"] = order
+    query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+    return f"https://{domain}/resource/{dataset_id}.csv?{query}"
+
+
+def _soda_get(url: str, params: dict, app_token: str | None) -> list[dict]:
+    """One SODA GET → list of row dicts. Isolated so tests can stub the network."""
+    headers = {"X-App-Token": app_token} if app_token else {}
+    resp = requests.get(url, params=params, headers=headers, timeout=SODA_TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def fetch_socrata(
+    domain: str,
+    dataset_id: str,
+    where: str | None = None,
+    select: str | None = None,
+    order: str | None = None,
+    page_size: int = SODA_PAGE_SIZE,
+    app_token: str | None = cfg.SOCRATA_APP_TOKEN,
+) -> pd.DataFrame:
+    """Page a SODA resource until a short page. Raises on zero rows."""
+    url = socrata_resource_url(domain, dataset_id)
+    log.info(
+        "Socrata fetch %s/%s (app_token=%s)",
+        domain,
+        dataset_id,
+        "yes" if app_token else "no",
+    )
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        params: dict = {
+            "$limit": page_size,
+            "$offset": offset,
+            "$order": order or ":id",
+        }
+        if where:
+            params["$where"] = where
+        if select:
+            params["$select"] = select
+        page = _soda_get(url, params, app_token)
+        rows.extend(page)
+        log.info("  %s: %d rows fetched", dataset_id, len(rows))
+        if len(page) < page_size:
+            break
+        offset += len(page)
+    if not rows:
+        raise ValueError(f"Socrata {domain}/{dataset_id} returned zero rows")
+    return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------- #
+# NOAA GHCN-Daily                                                              #
+# --------------------------------------------------------------------------- #
+def noaa_ghcn_url(station: str) -> str:
+    """Keyless GHCN-Daily CSV for one station (precip tenths-mm, temp tenths-°C)."""
+    return f"{NCEI_GHCN_ACCESS}/{station}.csv"
+
+
+# --------------------------------------------------------------------------- #
+# EPA AQS bulk AirData zips                                                    #
+# --------------------------------------------------------------------------- #
+_AQS_COLUMNS = {
+    "State Code": "state_code",
+    "County Code": "county_code",
+    "County Name": "county_name",
+    "Site Num": "site_num",
+    "Parameter Code": "parameter_code",
+    "Parameter Name": "parameter_name",
+    "Latitude": "latitude",
+    "Longitude": "longitude",
+    "Date Local": "date_local",
+    "Arithmetic Mean": "arithmetic_mean",
+    "AQI": "aqi",
+    "Units of Measure": "units",
+    "Local Site Name": "local_site_name",
+    "CBSA Name": "cbsa_name",
+}
+
+
+def aqs_daily_url(param_code: str, year: int) -> str:
+    """The keyless national daily-summary zip for one pollutant and year."""
+    return f"{AQS_AIRDATA}/daily_{param_code}_{year}.zip"
+
+
+def _aqs_metro_daily(df: pd.DataFrame, state: str, counties: set[str]) -> pd.DataFrame:
+    """Keep AQI-bearing daily rows for the given state/counties, snake_cased."""
+    keep = (
+        (df["State Code"].astype(str) == state)
+        & (df["County Code"].astype(str).isin(counties))
+        & (df["AQI"].notna())
+    )
+    return (
+        df.loc[keep, list(_AQS_COLUMNS)]
+        .rename(columns=_AQS_COLUMNS)
+        .reset_index(drop=True)
+    )
+
+
+def fetch_aqs_year(
+    param_code: str, year: int, state: str, counties: set[str]
+) -> pd.DataFrame:
+    """Download one national daily zip and return just the metro daily rows."""
+    url = aqs_daily_url(param_code, year)
+    log.info("AQS fetch %s %d -> %s", param_code, year, url)
+    resp = requests.get(url, timeout=SODA_TIMEOUT)
+    resp.raise_for_status()
+    national = pd.read_csv(
+        io.BytesIO(resp.content),
+        compression="zip",
+        dtype={"State Code": str, "County Code": str, "Site Num": str},
+        low_memory=False,
+    )
+    metro = _aqs_metro_daily(national, state, counties)
+    log.info(
+        "  %s %d: %d metro daily rows (of %d national)",
+        param_code,
+        year,
+        len(metro),
+        len(national),
+    )
+    return metro
+
+
+# --------------------------------------------------------------------------- #
+# USGS NWIS daily values + FDSN earthquakes                                    #
+# --------------------------------------------------------------------------- #
+def usgs_nwis_dv_url(site: str, param: str, start: str, end: str) -> str:
+    """USGS NWIS daily-values JSON for one site + parameter over a date range."""
+    return (
+        "https://nwis.waterservices.usgs.gov/nwis/dv/?format=json"
+        f"&sites={site}&parameterCd={param}"
+        f"&startDT={start}&endDT={end}"
+    )
+
+
+def fetch_usgs_dv(site: str, param: str, start: str, end: str) -> pd.DataFrame:
+    """USGS daily values -> DataFrame[obs_date, value]. Drops -999999 sentinels."""
+    url = usgs_nwis_dv_url(site, param, start, end)
+    log.info("USGS NWIS fetch %s param %s (%s..%s)", site, param, start, end)
+    resp = requests.get(
+        url, timeout=SODA_TIMEOUT, headers={"User-Agent": "gregan/0.1 (glendora open-data)"}
+    )
+    resp.raise_for_status()
+    series = resp.json()["value"]["timeSeries"]
+    if not series:
+        raise ValueError(f"USGS NWIS returned no series for {site}/{param}")
+    values = series[0]["values"][0]["value"]
+    df = pd.DataFrame(values)[["dateTime", "value"]].rename(
+        columns={"dateTime": "obs_date"}
+    )
+    df = df[df["value"].astype(str) != "-999999"]
+    if df.empty:
+        raise ValueError(f"USGS NWIS returned no real values for {site}/{param}")
+    log.info("  USGS %s/%s: %d daily rows", site, param, len(df))
+    return df
+
+
+def earthquake_query_url(bbox: dict, start: str) -> str:
+    """USGS FDSN geojson query for earthquakes in a lat/lon bbox since ``start``."""
+    lat0, lat1 = bbox["lat"]
+    lon0, lon1 = bbox["lon"]
+    return (
+        "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson"
+        f"&minlatitude={min(lat0, lat1)}&maxlatitude={max(lat0, lat1)}"
+        f"&minlongitude={min(lon0, lon1)}&maxlongitude={max(lon0, lon1)}"
+        f"&starttime={start}&eventtype=earthquake"
+    )
+
+
+def parse_earthquakes(geojson: dict) -> pd.DataFrame:
+    """Keep ``type=earthquake`` features only. Raises on zero rows."""
+    rows: list[dict] = []
+    for feat in geojson.get("features") or []:
+        props = feat.get("properties") or {}
+        if props.get("type") != "earthquake":
+            continue
+        coords = (feat.get("geometry") or {}).get("coordinates") or [None, None, None]
+        rows.append(
+            {
+                "event_id": feat.get("id"),
+                "event_time_ms": props.get("time"),
+                "place": props.get("place"),
+                "mag": props.get("mag"),
+                "longitude": coords[0],
+                "latitude": coords[1],
+                "depth_km": coords[2] if len(coords) > 2 else None,
+            }
+        )
+    if not rows:
+        raise ValueError("USGS FDSN returned zero earthquakes")
+    return pd.DataFrame(rows)
+
+
+_NTD_MODE_LABELS = {
+    "MB": "Bus",
+    "CB": "Commuter Bus",
+    "RB": "Bus Rapid Transit",
+    "TB": "Trolleybus",
+    "LR": "Light Rail",
+    "SR": "Streetcar",
+    "CR": "Commuter Rail",
+    "MG": "Monorail / Automated Guideway",
+    "MO": "Monorail",
+    "FB": "Ferryboat",
+    "DR": "Demand Response",
+    "DT": "Demand Response Taxi",
+    "VP": "Vanpool",
+}
+
+
+def ntd_mode_label(mode_code: str | None) -> str:
+    """Human label for an NTD mode code, falling back to the raw code if unknown."""
+    if not mode_code:
+        return "Unknown"
+    return _NTD_MODE_LABELS.get(mode_code.strip().upper(), mode_code.strip().upper())
+
+
+def tree_genus(scientific_name: str | None) -> str | None:
+    """Genus (first token) of a botanical name. None for vacant/unknown/stump."""
+    if not scientific_name:
+        return None
+    tokens = scientific_name.strip().split()
+    if not tokens:
+        return None
+    if tokens[0].lower() in ("x", "×") and len(tokens) > 1:
+        tokens = tokens[1:]
+    genus = tokens[0].capitalize()
+    if genus.lower() in ("unknown", "vacant", "stump", ""):
+        return None
+    return genus
 
 
 # --------------------------------------------------------------------------- #
@@ -467,6 +740,169 @@ def build_fire_hazard_zones(con: duckdb.DuckDBPyConnection) -> None:
     load_raw(con, "fire_hazard_zones", pd.DataFrame(rows))
 
 
+def build_weather(con: duckdb.DuckDBPyConnection) -> None:
+    """San Gabriel Dam GHCN-Daily (USC00047779)."""
+    ingest_csv(con, "weather", noaa_ghcn_url(cfg.NOAA_STATION), header=True)
+
+
+def build_river(con: duckdb.DuckDBPyConnection) -> None:
+    """San Gabriel River daily discharge + gage height (USGS 11085000)."""
+    end = datetime.now(tz=UTC).date().isoformat()
+    flow = fetch_usgs_dv(
+        cfg.USGS_SAN_GABRIEL_SITE, cfg.USGS_FLOW_PARAM, cfg.USGS_START, end
+    ).rename(columns={"value": "discharge_cfs"})
+    try:
+        gage = fetch_usgs_dv(
+            cfg.USGS_SAN_GABRIEL_SITE, cfg.USGS_GAGE_PARAM, cfg.USGS_START, end
+        ).rename(columns={"value": "gage_height_ft"})
+        merged = flow.merge(gage, on="obs_date", how="outer")
+    except ValueError as exc:
+        log.warning("No daily gage-height series at %s: %s", cfg.USGS_SAN_GABRIEL_SITE, exc)
+        merged = flow
+        merged["gage_height_ft"] = None
+    load_raw(con, "river", merged)
+
+
+def build_groundwater(con: duckdb.DuckDBPyConnection) -> None:
+    """CA DWR stations + periodic levels for Bulletin-118 basin 4-013."""
+    stations = fetch_ckan(
+        cfg.DWR_GW_STATIONS_RESOURCE,
+        filters={"basin_name": cfg.DWR_BASIN_NAME},
+    )
+    load_raw(con, "gw_stations", stations)
+    measurements = fetch_ckan(
+        cfg.DWR_GW_MEASUREMENTS_RESOURCE,
+        filters={"basin_code": cfg.DWR_BASIN_CODE},
+    )
+    load_raw(con, "gw_measurements", measurements)
+
+
+def build_air_quality(con: duckdb.DuckDBPyConnection) -> None:
+    """EPA AQS daily PM2.5 + Ozone; keep Glendora ozone + Pasadena PM2.5 sites."""
+    counties = {cfg.AQS_COUNTY}
+    keep_sites = {cfg.AQS_SITE_GLENDORA, cfg.AQS_SITE_PM25_NEAREST}
+    frames: list[pd.DataFrame] = []
+    for param_code in cfg.AQS_PARAMS:
+        for year in range(cfg.AQS_START_YEAR, cfg.AQS_END_YEAR + 1):
+            frames.append(fetch_aqs_year(param_code, year, cfg.AQS_STATE, counties))
+    combined = pd.concat(frames, ignore_index=True)
+    before = len(combined)
+    combined["site_num"] = combined["site_num"].astype(str).str.zfill(4)
+    combined = combined[combined["site_num"].isin(keep_sites)].reset_index(drop=True)
+    log.info(
+        "AQS site filter %s: %d → %d rows",
+        sorted(keep_sites),
+        before,
+        len(combined),
+    )
+    if combined.empty:
+        raise ValueError("EPA AQS fetch returned zero rows after Glendora-site filter")
+    load_raw(con, "air_quality", combined)
+
+
+def build_ntd_ridership(con: duckdb.DuckDBPyConnection) -> None:
+    """FTA NTD monthly ridership for Foothill Transit + LA Metro."""
+    agencies = list(cfg.NTD_AGENCIES)
+    quoted = ", ".join("'" + a.replace("'", "''") + "'" for a in agencies)
+    where = f"agency in ({quoted}) and date >= '{cfg.NTD_START}'"
+    df = fetch_socrata(
+        *cfg.NTD_RIDERSHIP,
+        where=where,
+        select="agency, mode, tos, date, upt",
+        order="date",
+    )
+    df["agency_label"] = df["agency"].map(cfg.NTD_AGENCIES)
+    df["mode_label"] = df["mode"].map(ntd_mode_label)
+    load_raw(con, "ntd_ridership", df)
+
+
+def build_parks(con: duckdb.DuckDBPyConnection) -> None:
+    """Glendora city GIS parks (15 polygons)."""
+    url = arcgis_layer_url(*cfg.PARKS)
+    rows: list[dict] = []
+    for attrs, geom in fetch_features(
+        url, out_fields="NAME,TYPE,ADDRESS,ACRES", geometry=True
+    ):
+        lon, lat = _centroid(geom)
+        rows.append(
+            {
+                "name": attrs.get("NAME"),
+                "park_type": attrs.get("TYPE"),
+                "address": attrs.get("ADDRESS"),
+                "acres": attrs.get("ACRES"),
+                "longitude": lon,
+                "latitude": lat,
+            }
+        )
+    load_raw(con, "parks", pd.DataFrame(rows))
+
+
+def build_trees(con: duckdb.DuckDBPyConnection) -> None:
+    """Glendora street-tree inventory (~14k points)."""
+    url = arcgis_layer_url(*cfg.TREES)
+    rows: list[dict] = []
+    fields = "BOTANICAL,COMMON,DBH,HEIGHT,MAINTENANC,DISTRICT"
+    for attrs, geom in fetch_features(url, out_fields=fields, geometry=True):
+        lon, lat = _centroid(geom)
+        rows.append(
+            {
+                "botanical": attrs.get("BOTANICAL"),
+                "common_name": attrs.get("COMMON"),
+                "genus": tree_genus(attrs.get("BOTANICAL")),
+                "dbh": attrs.get("DBH"),
+                "height": attrs.get("HEIGHT"),
+                "maintenance": attrs.get("MAINTENANC"),
+                "district": attrs.get("DISTRICT"),
+                "longitude": lon,
+                "latitude": lat,
+            }
+        )
+    load_raw(con, "trees", pd.DataFrame(rows))
+
+
+def build_zoning(con: duckdb.DuckDBPyConnection) -> None:
+    """Glendora zoning polygons (layer 26). Drop blank KML leftovers."""
+    url = arcgis_layer_url(*cfg.ZONING)
+    rows: list[dict] = []
+    for attrs, geom in fetch_features(
+        url, out_fields="ZONING_1,ZONING_N_1,OVERLAY__1", geometry=True
+    ):
+        code = (attrs.get("ZONING_1") or "").strip()
+        if not code:
+            continue
+        lon, lat = _centroid(geom)
+        rings = (geom or {}).get("rings") or []
+        overlay = (attrs.get("OVERLAY__1") or "").strip()
+        if overlay in ("", "<Null>"):
+            overlay = None
+        rows.append(
+            {
+                "zoning": code,
+                "zoning_name": (attrs.get("ZONING_N_1") or "").strip() or None,
+                "overlay": overlay,
+                "longitude": lon,
+                "latitude": lat,
+                "rings_json": json.dumps(rings[0]) if rings else None,
+            }
+        )
+    load_raw(con, "zoning", pd.DataFrame(rows))
+
+
+def build_earthquakes(con: duckdb.DuckDBPyConnection) -> None:
+    """USGS FDSN earthquakes in the Glendora bbox since EARTHQUAKE_START."""
+    url = earthquake_query_url(cfg.EARTHQUAKE_BBOX, cfg.EARTHQUAKE_START)
+    log.info("USGS FDSN fetch %s", url)
+    resp = requests.get(url, timeout=SODA_TIMEOUT)
+    resp.raise_for_status()
+    load_raw(con, "earthquakes", parse_earthquakes(resp.json()))
+
+
+def build_crime(con: duckdb.DuckDBPyConnection) -> None:
+    """CA DOJ Crimes & Clearances annual summary, Glendora PD only."""
+    ingest_csv(con, "crime", cfg.CA_DOJ_CRIME_CSV, header=True)
+    filter_table_to_city(con, "crime", "NCICCode", city=cfg.CA_DOJ_CRIME_NCIC)
+
+
 # --------------------------------------------------------------------------- #
 # Orchestration                                                                #
 # --------------------------------------------------------------------------- #
@@ -475,6 +911,16 @@ BUILDERS = {
     "fire_perimeters": build_fire_perimeters,
     "fire_stations": build_fire_stations,
     "fire_hazard_zones": build_fire_hazard_zones,
+    "weather": build_weather,
+    "river": build_river,
+    "groundwater": build_groundwater,
+    "air_quality": build_air_quality,
+    "ntd_ridership": build_ntd_ridership,
+    "parks": build_parks,
+    "trees": build_trees,
+    "zoning": build_zoning,
+    "earthquakes": build_earthquakes,
+    "crime": build_crime,
 }
 
 # Topics with no machine-readable Glendora-scoped feed (see SOURCING.md). Logged

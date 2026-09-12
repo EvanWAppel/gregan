@@ -35,3 +35,25 @@ sources:
           CAL FIRE Fire Hazard Severity Zones intersecting the Glendora bbox.
           SRA layer 0 (2007 vintage) + LRA layer 1 (2011 vintage). Not the 2025
           FHSZ update — caption the vintage on the page.
+      - name: weather
+        description: NOAA GHCN-Daily CSV for San Gabriel Dam USC00047779.
+      - name: river
+        description: USGS NWIS daily discharge (00060) and gage height (00065) at 11085000.
+      - name: gw_stations
+        description: CA DWR stations in Bulletin-118 basin San Gabriel Valley (80 wells).
+      - name: gw_measurements
+        description: CA DWR periodic groundwater levels for basin_code 4-013.
+      - name: air_quality
+        description: EPA AQS daily Ozone (Glendora 0016) and PM2.5 (Pasadena 2005).
+      - name: ntd_ridership
+        description: FTA NTD monthly UPT for Foothill Transit and LA Metro since 2015.
+      - name: parks
+        description: Glendora GIS Parks layer 1 — 15 polygons with acreage.
+      - name: trees
+        description: Glendora GIS street-tree inventory (~14k points).
+      - name: zoning
+        description: Glendora GIS Zoning_Glendora layer 26 polygons.
+      - name: earthquakes
+        description: USGS FDSN earthquakes in the Glendora bbox since 2000.
+      - name: crime
+        description: CA DOJ Crimes & Clearances annual rows for NCICCode=Glendora.
