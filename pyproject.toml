@@ -1,0 +1,36 @@
+[project]
+name = "gregan"
+version = "0.1.0"
+description = "Glendora, CA open-data explorer (Streamlit + DuckDB + dbt). A port of the robbins/Elvis engine."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "altair>=6.2.2",
+    "dbt-duckdb>=1.11.0",
+    "duckdb>=1.5.5",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.5",
+    "pydeck>=0.9.3",
+    "requests>=2.34.2",
+    "streamlit>=1.61.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+# Streamlit view pages are thin presentation glue built on Altair's fluent API,
+# whose type stubs return an unresolved TypeVar from `.mark_*()`, so ty flags a
+# false-positive `unresolved-attribute` on every `.encode(...)`. Relax that one
+# rule for views/ only — full strictness still applies to the data/logic code.
+[[tool.ty.overrides]]
+include = ["views/"]
+rules.unresolved-attribute = "ignore"
+
+[dependency-groups]
+dev = [
+    "prek>=0.4.13",
+    "pytest>=9.1.1",
+    "ruff>=0.16.2",
+    "ty>=0.0.70",
+]

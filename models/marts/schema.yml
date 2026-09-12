@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: mart_inspections_by_grade
+    description: Grade distribution (A/B/C) across Glendora inspection activities.
+    columns:
+      - name: grade
+        data_tests:
+          - not_null
+          - unique
+  - name: mart_inspections_facilities
+    description: One row per Glendora facility — its most recent inspection.
+    columns:
+      - name: facility_id
+        description: LA County facility id — the natural key (one row per facility here).
+        data_tests:
+          - not_null
+          - unique

@@ -1,0 +1,30 @@
+# Pre-commit hooks, run via prek (`uv run prek install`). Local/system hooks call
+# the project's own uv-managed tools so versions never drift from pyproject.
+# Fast checks (lint, typecheck) run on commit; the test suite runs on push.
+# We lint but do not enforce `ruff format` — the code uses a deliberately compact
+# hand style that the formatter would rewrite; `ruff check` covers real issues.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        require_serial: true
+
+      - id: ty
+        name: ty check
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true
+
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-push]

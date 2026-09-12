@@ -1,0 +1,13 @@
+.venv
+.git
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+target
+logs
+glendora.duckdb
+glendora.duckdb.wal
+.dbt
+.DS_Store
+.streamlit

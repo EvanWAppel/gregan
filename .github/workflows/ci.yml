@@ -1,0 +1,41 @@
+name: CI
+
+# Lint, typecheck, and test on every push and pull request. This does not build
+# the DuckDB warehouse (that fetches live sources at Docker build time); the
+# pytest suite stubs the network.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Typecheck (ty)
+        run: uv run ty check
+
+      - name: Tests (pytest)
+        run: uv run pytest -q
+
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      - name: Validate dbt project (parse)
+        run: uv run dbt parse --profiles-dir . --no-partial-parse
