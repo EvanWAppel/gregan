@@ -1,4 +1,5 @@
 *.csv
+!data/crime_glendora.csv
 .venv
 .dbt
 .env
