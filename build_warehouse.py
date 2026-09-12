@@ -226,6 +226,21 @@ def fetch_ckan(
 # --------------------------------------------------------------------------- #
 # ArcGIS FeatureServer (ported from robbins)                                   #
 # --------------------------------------------------------------------------- #
+def arcgis_layer_url(base: str, service: str, layer: int) -> str:
+    """FeatureServer layer URL from a ``(base, service, layer)`` city_config tuple."""
+    return f"{base}/{service}/FeatureServer/{layer}"
+
+
+def bbox_envelope(
+    bbox: dict | None = None,
+) -> tuple[float, float, float, float]:
+    """``(xmin, ymin, xmax, ymax)`` envelope from a ``{lat, lon}`` bbox dict."""
+    box = bbox or cfg.GLENDORA_BBOX
+    lat0, lat1 = box["lat"]
+    lon0, lon1 = box["lon"]
+    return (min(lon0, lon1), min(lat0, lat1), max(lon0, lon1), max(lat0, lat1))
+
+
 def fetch_features(
     base_url: str,
     where: str = "1=1",
@@ -233,13 +248,15 @@ def fetch_features(
     geometry: bool = True,
     out_sr: int = 4326,
     ssl_verify: bool = True,
+    envelope: tuple[float, float, float, float] | None = None,
 ) -> list[tuple[dict, dict | None]]:
     """Paginate an ArcGIS layer, returning (attributes, geometry) per feature.
 
-    Works for FeatureServer/MapServer layers. ``ssl_verify=False`` tolerates a
-    server with a broken TLS cert — pass it ONLY per-host, and we log loudly
-    when it's used (never disable verification globally). Raises if the layer
-    returns zero features.
+    Works for FeatureServer/MapServer layers. Pass ``envelope=(xmin, ymin, xmax,
+    ymax)`` to spatially filter (WGS84). ``ssl_verify=False`` tolerates a server
+    with a broken TLS cert — pass it ONLY per-host, and we log loudly when it's
+    used (never disable verification globally). Raises if the layer returns zero
+    features.
     """
     if not ssl_verify:
         log.warning("TLS verification DISABLED for %s (broken-cert host)", base_url)
@@ -257,18 +274,22 @@ def fetch_features(
     out: list[tuple[dict, dict | None]] = []
     offset = 0
     while True:
-        feats = get(
-            f"{base_url}/query",
-            {
-                "where": where,
-                "outFields": out_fields,
-                "returnGeometry": "true" if geometry else "false",
-                "outSR": out_sr,
-                "f": "json",
-                "resultOffset": offset,
-                "resultRecordCount": page,
-            },
-        ).get("features", [])
+        params: dict = {
+            "where": where,
+            "outFields": out_fields,
+            "returnGeometry": "true" if geometry else "false",
+            "outSR": out_sr,
+            "f": "json",
+            "resultOffset": offset,
+            "resultRecordCount": page,
+        }
+        if envelope:
+            xmin, ymin, xmax, ymax = envelope
+            params["geometry"] = f"{xmin},{ymin},{xmax},{ymax}"
+            params["geometryType"] = "esriGeometryEnvelope"
+            params["inSR"] = out_sr
+            params["spatialRel"] = "esriSpatialRelIntersects"
+        feats = get(f"{base_url}/query", params).get("features", [])
         if not feats:
             break
         out.extend((f.get("attributes", {}), f.get("geometry")) for f in feats)
@@ -299,15 +320,82 @@ def _centroid(geom: dict | None) -> tuple[float | None, float | None]:
     return (None, None)
 
 
-def _epoch_to_date(ms) -> str | None:
-    """ArcGIS epoch-millisecond timestamp -> ISO date string (None if missing)."""
+def _epoch_to_date(ms, min_year: int = 1990) -> str | None:
+    """ArcGIS epoch-millisecond timestamp -> ISO date string (None if missing).
+
+    Default ``min_year=1990`` drops the 1900 "no date" sentinel used on many
+    municipal layers. Historic fire perimeters pass ``min_year=1800`` so a 1919
+    alarm date survives.
+    """
     if ms is None:
         return None
     dt = pd.to_datetime(ms, unit="ms", errors="coerce")
-    # ArcGIS uses a 1900 sentinel for "no date"; treat pre-1990 as null.
-    if pd.isna(dt) or dt.year < 1990:
+    if pd.isna(dt) or dt.year < min_year:
         return None
     return dt.strftime("%Y-%m-%d")
+
+
+def load_raw(con: duckdb.DuckDBPyConnection, table: str, df: pd.DataFrame) -> None:
+    """Write a DataFrame into ``raw.<table>``. Raises on zero rows."""
+    con.execute("CREATE SCHEMA IF NOT EXISTS raw")
+    con.register("_df", df)
+    con.execute(f"CREATE OR REPLACE TABLE raw.{table} AS SELECT * FROM _df")
+    con.unregister("_df")
+    log.info("Loaded raw.%s: %d rows, %d cols", table, len(df), len(df.columns))
+    if df.empty:
+        raise ValueError(f"raw.{table} loaded zero rows")
+
+
+# CAL FIRE historic-perimeter CAUSE coded values (layer metadata, verified).
+FIRE_CAUSE = {
+    1: "Lightning",
+    2: "Equipment Use",
+    3: "Smoking",
+    4: "Campfire",
+    5: "Debris",
+    6: "Railroad",
+    7: "Arson",
+    8: "Playing with Fire",
+    9: "Miscellaneous",
+    10: "Vehicle",
+    11: "Electrical Power",
+    12: "Firefighter Training",
+    13: "Non-Firefighter Training",
+    14: "Unknown / Unidentified",
+    15: "Structure",
+    16: "Aircraft",
+    17: "Volcanic",
+    18: "Escaped Prescribed Burn",
+    19: "Illegal Alien Campfire",
+}
+
+
+def fire_perimeter_row(attrs: dict, geom: dict | None) -> dict:
+    """Shape one CAL FIRE perimeter feature into a raw-table row."""
+    lon, lat = _centroid(geom)
+    rings = (geom or {}).get("rings") or []
+    outer = rings[0] if rings else None
+    name = attrs.get("FIRE_NAME")
+    cause_code = attrs.get("CAUSE")
+    try:
+        cause_key = int(cause_code) if cause_code is not None else None
+    except (TypeError, ValueError):
+        cause_key = None
+    return {
+        "objectid": attrs.get("OBJECTID"),
+        "fire_name": name,
+        "year": attrs.get("YEAR_"),
+        "agency": attrs.get("AGENCY"),
+        "gis_acres": attrs.get("GIS_ACRES"),
+        "alarm_date": _epoch_to_date(attrs.get("ALARM_DATE"), min_year=1800),
+        "cont_date": _epoch_to_date(attrs.get("CONT_DATE"), min_year=1800),
+        "cause_code": cause_key,
+        "cause": FIRE_CAUSE.get(cause_key) if cause_key is not None else None,
+        "is_colby": bool(name) and str(name).strip().upper() == "COLBY",
+        "longitude": lon,
+        "latitude": lat,
+        "rings_json": json.dumps(outer) if outer else None,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -320,11 +408,73 @@ def build_restaurant_inspections(con: duckdb.DuckDBPyConnection) -> None:
     filter_table_to_city(con, "restaurant_inspections", "FACILITY CITY")
 
 
+def build_fire_perimeters(con: duckdb.DuckDBPyConnection) -> None:
+    """CAL FIRE historic perimeters intersecting the Glendora bbox."""
+    url = arcgis_layer_url(*cfg.FIRE_PERIMETERS)
+    envelope = bbox_envelope()
+    log.info("ArcGIS fetch fire perimeters %s envelope=%s", url, envelope)
+    feats = fetch_features(url, envelope=envelope)
+    rows = [fire_perimeter_row(attrs, geom) for attrs, geom in feats]
+    load_raw(con, "fire_perimeters", pd.DataFrame(rows))
+
+
+def build_fire_stations(con: duckdb.DuckDBPyConnection) -> None:
+    """Glendora city GIS fire stations (3 points)."""
+    url = arcgis_layer_url(*cfg.FIRE_STATIONS)
+    log.info("ArcGIS fetch fire stations %s", url)
+    feats = fetch_features(url)
+    rows = []
+    for attrs, geom in feats:
+        lon, lat = _centroid(geom)
+        rows.append(
+            {
+                "name": attrs.get("NAME"),
+                "address": attrs.get("ADDRESS"),
+                "longitude": lon,
+                "latitude": lat,
+            }
+        )
+    load_raw(con, "fire_stations", pd.DataFrame(rows))
+
+
+def build_fire_hazard_zones(con: duckdb.DuckDBPyConnection) -> None:
+    """CAL FIRE FHSZ polygons intersecting the Glendora bbox (SRA 2007 + LRA 2011)."""
+    envelope = bbox_envelope()
+    rows = []
+    for layer_id, responsibility in ((0, "SRA"), (1, "LRA")):
+        url = f"{cfg.FHSZ_MAPSERVER}/{layer_id}"
+        log.info(
+            "ArcGIS fetch FHSZ %s %s envelope=%s (vintage: SRA 2007 / LRA 2011)",
+            responsibility,
+            url,
+            envelope,
+        )
+        feats = fetch_features(url, envelope=envelope)
+        for attrs, geom in feats:
+            lon, lat = _centroid(geom)
+            rings = (geom or {}).get("rings") or []
+            rows.append(
+                {
+                    "objectid": attrs.get("OBJECTID"),
+                    "responsibility": responsibility,
+                    "haz_code": attrs.get("HAZ_CODE"),
+                    "haz_class": attrs.get("HAZ_CLASS"),
+                    "longitude": lon,
+                    "latitude": lat,
+                    "rings_json": json.dumps(rings[0]) if rings else None,
+                }
+            )
+    load_raw(con, "fire_hazard_zones", pd.DataFrame(rows))
+
+
 # --------------------------------------------------------------------------- #
 # Orchestration                                                                #
 # --------------------------------------------------------------------------- #
 BUILDERS = {
     "restaurant_inspections": build_restaurant_inspections,
+    "fire_perimeters": build_fire_perimeters,
+    "fire_stations": build_fire_stations,
+    "fire_hazard_zones": build_fire_hazard_zones,
 }
 
 # Topics with no machine-readable Glendora-scoped feed (see SOURCING.md). Logged

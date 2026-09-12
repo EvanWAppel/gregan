@@ -16,3 +16,30 @@ models:
         data_tests:
           - not_null
           - unique
+  - name: mart_fire_perimeters
+    description: Historic fire perimeters intersecting Glendora (map + table).
+    columns:
+      - name: objectid
+        data_tests:
+          - not_null
+          - unique
+  - name: mart_fire_by_decade
+    description: Fire count and GIS acres by decade.
+    columns:
+      - name: decade
+        data_tests:
+          - not_null
+          - unique
+  - name: mart_fire_stations
+    description: Glendora fire stations as map points.
+    columns:
+      - name: name
+        data_tests:
+          - not_null
+          - unique
+  - name: mart_fire_hazard_zones
+    description: FHSZ polygons intersecting Glendora (SRA 2007 + LRA 2011).
+    columns:
+      - name: objectid
+        data_tests:
+          - not_null

@@ -10,10 +10,10 @@ multi-page app.
 
 **Live:** https://gregan-production.up.railway.app
 
-> **Status: vertical slice.** One topic — LA County restaurant inspections, filtered to
-> Glendora — runs end to end (fetch → cp1252 transcode → `raw` → Glendora filter → dbt
-> staging/marts → Streamlit page). Topic pages fan out from here. The DuckDB warehouse
-> bakes at Docker build time on Railway.
+> **Status: vertical slice + wildfire.** Restaurant inspections (the county→city CSV
+> pattern) and the foothills wildfire page (CAL FIRE perimeters + Colby Fire + three
+> city fire stations) run end to end. More topic pages fan out from here. The DuckDB
+> warehouse bakes at Docker build time on Railway.
 
 ## Docs
 - [`PRIMER.md`](./PRIMER.md) — orientation

@@ -21,6 +21,11 @@ pages = [
         icon="🍽️",
         default=True,
     ),
+    st.Page(
+        "views/wildfire.py",
+        title="Wildfire",
+        icon="🔥",
+    ),
 ]
 
 st.navigation(pages).run()
