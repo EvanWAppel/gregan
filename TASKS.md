@@ -4,11 +4,8 @@ Implementation task board for [`PRD.md`](./PRD.md). A port of the **robbins** (S
 engine to **Glendora, CA**. Read [`PRIMER.md`](./PRIMER.md) and [`SOURCING.md`](./SOURCING.md)
 first — the source map, the proposed `city_config.py`, and the open items.
 
-> **Status: vertical slice on a PR; Railway project exists, first deploy failed.**
-> VS-01–VS-06 are done. `origin/main` exists and branch protection is on. Railway
-> service `gregan` is linked (`https://gregan-production.up.railway.app`) but the
-> first deploy failed because `main` had no Dockerfile. Merge the slice PR to
-> rebuild. CONFIG-02 / CKAN-01 / ETL-02 landed 2026-09-12.
+> **Status: live on Railway.** All KEEP topics including ACS demographics. Live:
+> https://gregan-production.up.railway.app
 
 ## How to use this board
 
@@ -83,10 +80,8 @@ static CSV filtered to Glendora).
   Map omitted — feed is non-spatial (see VS-05). Rendering verified headlessly via
   Streamlit `AppTest` (no browser, per guardrail); added as a warehouse-guarded
   smoke test `tests/test_app_smoke.py`. 5 tests green; ruff/ty clean.
-- [~] **VS-07** — Railway project `enchanting-flexibility` / service `gregan` is
-  up and domain `https://gregan-production.up.railway.app` is live, but the first
-  deploy **failed** (Railpack: `main` only had docs). Slice PR lands the Dockerfile
-  so the warehouse can bake at build time. Confirm the inspections page after merge.
+- [x] **VS-07** — Live at https://gregan-production.up.railway.app (warehouse baked
+  at Docker build time).
 
 **Exit criteria:** local `pytest`/`ruff`/`ty` green; page renders; Docker image bakes +
 serves; Railway deploy live.
@@ -109,14 +104,13 @@ serves; Railway deploy live.
 
 - [x] **CKAN-01** — `fetch_ckan(resource_id, filters)` pages `datastore_search`,
   JSON-encodes filters, raises on zero rows. 8 tests in `tests/test_fetch_ckan.py`.
-- [ ] **CKAN-02** — Wire DWR stations resource `af157380-fb42-4abf-b72a-6f9f98868077`
-  with `filters={"basin_name": "San Gabriel Valley"}` (80 stations; basin string
-  confirmed in CONFIG-02). Staging/mart/page still to land as TOPIC-groundwater.
+- [x] **CKAN-02** — Stations `af157380-…` (`basin_name='San Gabriel Valley'`, 80) +
+  measurements `bfa9f262-…` (`basin_code='4-013'`, 47,089). Page is TOPIC-groundwater.
 
 ## Group ETL — Ingestion hardening (port from robbins)
 
-- [~] **ETL-01** — Force-IPv4 `socket.getaddrinfo` wrapper is in `build_warehouse.py`
-  (same as robbins). AQS *year* bulk fetch / builder is not wired yet (TOPIC-air).
+- [x] **ETL-01** — IPv4 wrapper + `fetch_aqs_year` (Site Num as str). 2015–2026 PM2.5
+  + Ozone zips → 9,663 rows at sites 0016 / 2005.
 - [x] **ETL-02** — `fetch_features()` + `_centroid` + `_epoch_to_date`; empty layer
   raises; `ssl_verify=False` logs a warning. Tests in `tests/test_fetch_features.py`.
 - [x] **ETL-03** — `ingest_csv()` + cp1252 `transcode_bytes` landed with VS-04.
@@ -130,36 +124,26 @@ serves; Railway deploy live.
 Start after VS deploys. Each: fetch → `stg_` view (apply Glendora filter here for
 county sources) → `mart_` table → `views/*.py` page. See `SOURCING.md` for ids.
 
-- [ ] **TOPIC-inspections** — Restaurant inspections (LA County). ✅ = VS topic.
+- [x] **TOPIC-inspections** — Restaurant inspections (LA County). ✅ = VS topic.
 - [x] **TOPIC-wildfire** — CAL FIRE historic perimeters intersecting the Glendora bbox
   (87 fires, incl. **2014 Colby Fire 1,952 ac**) + FHSZ SRA 2007 / LRA 2011 (14
   polygons, vintage captioned). Map + decade chart + table. Identity anchor.
-- [ ] **TOPIC-weather** — NOAA GHCN-Daily `USC00047779` (San Gabriel Dam). Monthly
-  climatology, temp band, records. Optional in-town precip hook `USC00043452`.
-- [ ] **TOPIC-river** — USGS NWIS site `11085000` (San Gabriel R): discharge + gage
-  height hydrograph.
-- [ ] **TOPIC-groundwater** — CA DWR `basin_name='San Gabriel Valley'` (80 stations,
-  via `fetch_ckan`); pairs with the river page for the "where the water comes from"
-  story.
-- [ ] **TOPIC-air** — EPA AQS county 037: **ozone at in-city site `0016`**, PM2.5 at
-  nearest live site Pasadena `2005` (Azusa `0002` is gone from 2025 files). AQI
-  categories, wildfire-smoke spikes, monitor map.
-- [ ] **TOPIC-transit** — Federal NTD `8bui-9xvu`: Foothill Transit (90146) + LA Metro
-  (90154, trailing-space string). Monthly UPT; tie to the 2025 A Line extension.
-- [ ] **TOPIC-parks** — Glendora GIS `Parks/FeatureServer/1` (15 parks). Acreage, map.
-- [ ] **TOPIC-trees** — Glendora GIS `Glendora_Trees/FeatureServer/0` (14,062). Species,
-  condition, hexbin density map. Strong city-native page.
-- [ ] **TOPIC-earthquakes** — USGS FDSN geojson (Glendora bbox); `type=earthquake` only.
-- [ ] **TOPIC-demographics** — Census ACS place `0630014` (needs `CENSUS_API_KEY`).
-  Context / landing figures.
-- [ ] **TOPIC-zoning** *(permits reframe)* — `Zoning_Glendora` FeatureServer layer 26
-  (871 polygons). No parcels layer on the city hub.
-- [x] **TOPIC-firestations** *(fire reframe)* — three city-GIS stations plotted on
-  the wildfire page (no incident feed exists).
-- [ ] **TOPIC-crime** *(reframe)* — CA DOJ annual CSV, `NCICCode='Glendora'` (41 years).
-  **No incident map.** Path: `.../dataset/2026-07/Crimes_and_Clearances_with_Arson-1985-2025.csv`.
-- [ ] **TOPIC-overview** — Landing page: warehouse-wide headline + themed KPI sections
-  with `st.page_link`s into detail pages. Aggregates existing marts only. **Do last.**
+- [x] **TOPIC-weather** — NOAA GHCN-Daily `USC00047779` (San Gabriel Dam), 25,922 days.
+  Monthly climatology, temp band, records. In-town precip hook not wired (optional).
+- [x] **TOPIC-river** — USGS `11085000` daily discharge (20,708 days). No daily gage
+  height series (00065 empty; logged). Hydrograph + monthly averages.
+- [x] **TOPIC-groundwater** — DWR basin 4-013: 80 stations, 47,089 levels. Map + median GWE.
+- [x] **TOPIC-air** — Ozone site `0016` + PM2.5 Pasadena `2005`, 9,663 daily rows.
+- [x] **TOPIC-transit** — NTD Foothill Transit + LA Metro (trailing-space agency), 1,042 rows.
+- [x] **TOPIC-parks** — 15 city GIS parks, acreage + map.
+- [x] **TOPIC-trees** — 14,062 city trees; vacant sites dropped; hexbin density. No condition field (maintenance class only).
+- [x] **TOPIC-earthquakes** — USGS FDSN, 92 earthquakes 2000–present (`eventtype=earthquake`).
+- [x] **TOPIC-demographics** — ACS 5-year 2024 place 30014: pop 50,926, median age
+  40.6, median HH income $113,569. Free `CENSUS_API_KEY` from env / Railway.
+- [x] **TOPIC-zoning** *(permits reframe)* — `ZONING_1` / `ZONING_N_1` on layer 26 (867 coded polygons). No parcels layer.
+- [x] **TOPIC-firestations** *(fire reframe)* — three city-GIS stations on the wildfire page.
+- [x] **TOPIC-crime** *(reframe)* — CA DOJ annual, `NCICCode='Glendora'`, 41 years → 26 since 2000. Trend only.
+- [x] **TOPIC-overview** — Landing KPIs + `st.page_link`s.
 
 **Dropped (log each in `build_warehouse.py`):** building permits, business licenses,
 short-term rentals, public art, fire/911 incident-level, reservoir levels.
@@ -172,13 +156,10 @@ short-term rentals, public art, fire/911 incident-level, reservoir levels.
   `__pycache__/`, `.DS_Store`.
 - [x] **DEPLOY-02** — `prek` pre-commit (`ruff` + `ty` on commit, `pytest` on push).
 - [x] **DEPLOY-03** — GitHub Actions CI (ruff + ty + pytest + `dbt parse`; no warehouse).
-- [~] **DEPLOY-04** — Railway project linked; first deploy failed pending slice PR merge.
-  Domain: `https://gregan-production.up.railway.app`.
-- [ ] **DEPLOY-05** — `README.md`: live URL, the three-pattern ingestion story, the
-  full source table, the dropped-topic note, local run + quality gates.
-- [ ] **DEPLOY-06** *(optional)* — Register in the portfolio `projects.toml` and wire
-  `gregan.evanappel.me`. **Apply branch protection to the new public repo** (global
-  guardrail) at repo-creation time.
+- [x] **DEPLOY-04** — Live: https://gregan-production.up.railway.app
+- [x] **DEPLOY-05** — README has live URL, three-pattern ingest table, dropped topics, local run + gates.
+- [ ] **DEPLOY-06** *(optional)* — Register in the portfolio `projects.toml` with the
+  Railway URL. Custom domain `gregan.evanappel.me` deferred. Branch protection is on.
 
 ## Suggested sequencing
 

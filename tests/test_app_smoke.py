@@ -18,11 +18,21 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_inspections_page_renders():
+def test_overview_page_renders():
     from streamlit.testing.v1 import AppTest
 
     app = DB_PATH.parent / "streamlit_app.py"
     at = AppTest.from_file(str(app), default_timeout=30).run()
+
+    assert not at.exception, [(e.type, e.value) for e in at.exception]
+    assert "Glendora" in at.title[0].value
+
+
+def test_inspections_page_renders():
+    from streamlit.testing.v1 import AppTest
+
+    page = DB_PATH.parent / "views" / "restaurant_inspections.py"
+    at = AppTest.from_file(str(page), default_timeout=30).run()
 
     assert not at.exception, [(e.type, e.value) for e in at.exception]
     assert at.title[0].value == "🍽️ Restaurant Inspections"

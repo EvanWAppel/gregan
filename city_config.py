@@ -12,6 +12,25 @@ CITY_NAME = "GLENDORA"
 PLACE_FIPS = "0630014"  # Census place (state 06 + place 30014)
 STATE_FIPS = "06"  # California
 COUNTY_FIPS = "037"  # Los Angeles County
+ACS_PLACE = "30014"  # place FIPS without state prefix
+ACS_YEAR = 2024  # ACS 5-year 2020–2024, verified live 2026-09-12
+ACS_DATASET = "acs/acs5"
+CENSUS_ACS_BASE = "https://api.census.gov/data"
+ACS_VARIABLES: dict[str, str] = {
+    "B01003_001E": "population",
+    "B01002_001E": "median_age",
+    "B19013_001E": "median_hh_income",
+    "B25077_001E": "median_home_value",
+    "B11001_001E": "households",
+    "B25003_001E": "occupied_housing",
+    "B25003_002E": "owner_occupied",
+    "B25003_003E": "renter_occupied",
+    "B15003_001E": "edu_pop_25plus",
+    "B15003_022E": "bachelors",
+    "B15003_023E": "masters",
+    "B15003_024E": "professional",
+    "B15003_025E": "doctorate",
+}
 # Bounding box for filtering county/state/federal data + map extent.
 GLENDORA_BBOX = {"lat": (34.09, 34.20), "lon": (-117.92, -117.80)}
 
@@ -52,6 +71,7 @@ FIRE_PERIMETERS = (
 FHSZ_MAPSERVER = "https://services.gis.ca.gov/arcgis/rest/services/Environment/Fire_Severity_Zones/MapServer"
 
 # --- Federal NTD transit (Socrata) ---
+SOCRATA_APP_TOKEN: str | None = None  # optional; NTD is anonymous-ok
 NTD_RIDERSHIP = ("data.transportation.gov", "8bui-9xvu")  # VERIFIED
 NTD_AGENCIES = {
     "Foothill Transit": "Foothill Transit",  # NTD 90146
@@ -60,7 +80,9 @@ NTD_AGENCIES = {
 
 # --- CA DWR groundwater (CKAN datastore — net-new fetch_ckan) ---
 DWR_GW_STATIONS_RESOURCE = "af157380-fb42-4abf-b72a-6f9f98868077"  # VERIFIED — 47,624 stations
+DWR_GW_MEASUREMENTS_RESOURCE = "bfa9f262-24a1-45bd-8dc8-138bc8107266"  # VERIFIED — periodic levels
 DWR_BASIN_NAME = "San Gabriel Valley"  # VERIFIED — Bulletin-118 name; 80 stations (not "Main San Gabriel")
+DWR_BASIN_CODE = "4-013"  # VERIFIED — Bulletin-118 basin code on the measurements resource
 
 # --- CA DOJ OpenJustice Crimes & Clearances (agency-annual; no incident map) ---
 CA_DOJ_CRIME_CSV = (
@@ -74,7 +96,10 @@ CA_DOJ_ORI = "CA0192600"  # Glendora PD; not a column in the annual CSV
 # --- Year caps (lean builds) — tune per source once fetched ---
 CRIME_START_YEAR = 2000
 AQS_START_YEAR = 2015
+AQS_END_YEAR = 2026  # inclusive; builder loops start..end
 NTD_START = "2015-01-01"
+USGS_START = "1970-01-01"
+EARTHQUAKE_START = "2000-01-01"
 
 # CONFIG-02 closed 2026-09-12 — former LEADs are recorded above. Empty on purpose
 # so a leftover id is obvious.
