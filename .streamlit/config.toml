@@ -1,0 +1,4 @@
+[server]
+# Railway runs the app headless behind its own proxy; the port/address are
+# passed on the command line (see the Dockerfile CMD).
+headless = true

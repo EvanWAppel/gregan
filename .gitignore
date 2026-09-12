@@ -1,0 +1,18 @@
+*.csv
+.venv
+.dbt
+.env
+.user.yml
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+target/
+logs/
+dbt_packages/
+.DS_Store
+.railway/
+
+# Generated warehouse — rebuild with `uv run python build_warehouse.py && uv run dbt build --profiles-dir .`
+*.duckdb
+*.duckdb.wal

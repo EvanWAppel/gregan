@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: raw
+    database: glendora
+    schema: raw
+    tables:
+      - name: restaurant_inspections
+        description: >
+          LA County Environmental Health restaurant & market inspections (ArcGIS Hub
+          item 19b6607ac82c4512b10811870975dbdc, a static cp1252 CSV export),
+          filtered at load to FACILITY CITY = 'GLENDORA' (101,244 → 507 rows). ONE
+          ROW PER INSPECTION ACTIVITY — a facility can have several programs/visits.
+          Columns (all text from the CSV load): "ACTIVITY DATE" (MM/DD/YYYY, leading
+          space), OWNER/FACILITY ids + names, PROGRAM NAME/STATUS/ELEMENT, "PE
+          DESCRIPTION" (risk tier), FACILITY ADDRESS/CITY/STATE/ZIP, SERVICE
+          CODE/DESCRIPTION, SCORE (0-100), GRADE (A/B/C), SERIAL NUMBER, EMPLOYEE ID.
+          Non-spatial — address/zip only, no lat/lon (a map would need geocoding).
+        loaded_at_field: "try_strptime(trim(\"ACTIVITY DATE\"), '%m/%d/%Y')"
+        freshness:
+          warn_after: {count: 60, period: day}
+          error_after: {count: 180, period: day}

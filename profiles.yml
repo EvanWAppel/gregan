@@ -1,0 +1,10 @@
+# Project-local dbt profile. Run dbt with `--profiles-dir .`
+# DuckDB warehouse is a single file (glendora.duckdb) built by build_warehouse.py.
+gregan:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: 'glendora.duckdb'
+      schema: main
+      threads: 4

@@ -1,0 +1,21 @@
+version: 2
+
+# Data tests for the staging layer. Assertions were verified against the built
+# warehouse before being written (see SOURCING.md). serial_number / facility_id are
+# NOT unique (a facility has many inspections), so they are documented as such
+# rather than asserted. House rule: no hidden errors.
+
+models:
+  - name: stg_restaurant_inspections
+    description: LA County EH inspections filtered to Glendora, one row per inspection activity.
+    columns:
+      - name: facility_id
+        description: LA County facility id (FA…). NOT unique — a facility has many inspections.
+        data_tests:
+          - not_null
+      - name: grade
+        description: Inspection letter grade. Verified A/B/C only across the 507 Glendora rows.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["A", "B", "C"]
