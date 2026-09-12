@@ -28,6 +28,7 @@ pages = [
     st.Page("views/trees.py", title="Street Trees", icon="🌲"),
     st.Page("views/zoning.py", title="Zoning", icon="🗺️"),
     st.Page("views/crime.py", title="Crime", icon="🚓"),
+    st.Page("views/demographics.py", title="Demographics", icon="👥"),
 ]
 
 st.navigation(pages).run()

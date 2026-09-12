@@ -57,3 +57,5 @@ sources:
         description: USGS FDSN earthquakes in the Glendora bbox since 2000.
       - name: crime
         description: CA DOJ Crimes & Clearances annual rows for NCICCode=Glendora.
+      - name: demographics
+        description: Census ACS 5-year place estimates for Glendora city (place 30014).

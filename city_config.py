@@ -12,6 +12,25 @@ CITY_NAME = "GLENDORA"
 PLACE_FIPS = "0630014"  # Census place (state 06 + place 30014)
 STATE_FIPS = "06"  # California
 COUNTY_FIPS = "037"  # Los Angeles County
+ACS_PLACE = "30014"  # place FIPS without state prefix
+ACS_YEAR = 2024  # ACS 5-year 2020–2024, verified live 2026-09-12
+ACS_DATASET = "acs/acs5"
+CENSUS_ACS_BASE = "https://api.census.gov/data"
+ACS_VARIABLES: dict[str, str] = {
+    "B01003_001E": "population",
+    "B01002_001E": "median_age",
+    "B19013_001E": "median_hh_income",
+    "B25077_001E": "median_home_value",
+    "B11001_001E": "households",
+    "B25003_001E": "occupied_housing",
+    "B25003_002E": "owner_occupied",
+    "B25003_003E": "renter_occupied",
+    "B15003_001E": "edu_pop_25plus",
+    "B15003_022E": "bachelors",
+    "B15003_023E": "masters",
+    "B15003_024E": "professional",
+    "B15003_025E": "doctorate",
+}
 # Bounding box for filtering county/state/federal data + map extent.
 GLENDORA_BBOX = {"lat": (34.09, 34.20), "lon": (-117.92, -117.80)}
 

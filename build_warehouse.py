@@ -35,6 +35,25 @@ import city_config as cfg
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("build_warehouse")
 
+_ACS_NULL_SENTINEL_MAX = -1e6
+
+
+def load_env_file(path: Path | None = None) -> None:
+    """Load ``.env`` into os.environ without overriding values already set.
+
+    Used so local ``CENSUS_API_KEY`` in ``.env`` is visible to warehouse builds.
+    Railway injects the same name at image-build time; ``setdefault`` lets that win.
+    """
+    env_path = path or Path(__file__).parent / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("'").strip('"'))
+
 # Some upstreams (notably aqs.epa.gov) advertise an AAAA record but have broken
 # IPv6, so a default connect hangs in SYN_SENT until timeout. Prefer IPv4 for all
 # fetches, falling back to whatever's available if a host is IPv4-less.
@@ -328,6 +347,83 @@ def tree_genus(scientific_name: str | None) -> str | None:
     if genus.lower() in ("unknown", "vacant", "stump", ""):
         return None
     return genus
+
+
+def census_acs_url(
+    year: int,
+    variables: list[str],
+    state: str,
+    place: str,
+    key: str,
+) -> str:
+    """ACS 5-year place endpoint. ``key`` is the free rate-limit token."""
+    params = {
+        "get": ",".join(["NAME", *variables]),
+        "for": f"place:{place}",
+        "in": f"state:{state}",
+        "key": key,
+    }
+    return f"{cfg.CENSUS_ACS_BASE}/{year}/{cfg.ACS_DATASET}?{urllib.parse.urlencode(params)}"
+
+
+def parse_acs_place(rows: list[list], var_map: dict[str, str]) -> pd.DataFrame:
+    """Parse an ACS place-level array-of-arrays response. Raises on no data rows."""
+    if len(rows) < 2:
+        raise ValueError("ACS response has no rows")
+    header, *data = rows
+    df = pd.DataFrame(data, columns=header)
+    df["geoid"] = df["state"].astype(str) + df["place"].astype(str)
+    df["name"] = df["NAME"]
+    for var, name in var_map.items():
+        values = pd.to_numeric(df[var], errors="coerce")
+        df[name] = values.mask(values < _ACS_NULL_SENTINEL_MAX)
+    keep = ["geoid", "name", *var_map.values()]
+    return df[keep].reset_index(drop=True)
+
+
+def fetch_acs_place() -> pd.DataFrame:
+    """ACS 5-year estimates for Glendora city (place 30014). Needs CENSUS_API_KEY."""
+    load_env_file()
+    key = os.environ.get("CENSUS_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "CENSUS_API_KEY is required for TOPIC-demographics. Request a free "
+            "key at https://api.census.gov/data/key_signup.html and put it in "
+            ".env (local) or the Railway service variable (deploy). It is a "
+            "rate-limit token, not a billed secret."
+        )
+    url = census_acs_url(
+        cfg.ACS_YEAR,
+        list(cfg.ACS_VARIABLES),
+        cfg.STATE_FIPS,
+        cfg.ACS_PLACE,
+        key,
+    )
+    log.info(
+        "ACS fetch %s place %s (key=%s)",
+        cfg.ACS_YEAR,
+        cfg.ACS_PLACE,
+        "yes",
+    )
+    resp = requests.get(url, timeout=SODA_TIMEOUT)
+    resp.raise_for_status()
+    body = resp.text
+    stripped = body.lstrip()
+    if not stripped.startswith(("[", "{")):
+        hint = (
+            "Invalid Key"
+            if "Invalid Key" in body
+            else ("Missing Key" if "Missing Key" in body else "non-JSON response")
+        )
+        raise RuntimeError(
+            f"Census ACS returned a {hint!r} page, not data — CENSUS_API_KEY is "
+            "likely mistyped or not yet activated (check the Census signup email)."
+        )
+    df = parse_acs_place(resp.json(), cfg.ACS_VARIABLES)
+    if df.empty:
+        raise ValueError("ACS returned zero place rows")
+    log.info("  ACS %s: %s population=%s", cfg.ACS_YEAR, df.iloc[0]["name"], df.iloc[0]["population"])
+    return df
 
 
 # --------------------------------------------------------------------------- #
@@ -903,6 +999,11 @@ def build_crime(con: duckdb.DuckDBPyConnection) -> None:
     filter_table_to_city(con, "crime", "NCICCode", city=cfg.CA_DOJ_CRIME_NCIC)
 
 
+def build_demographics(con: duckdb.DuckDBPyConnection) -> None:
+    """Census ACS 5-year estimates for Glendora city (place 30014)."""
+    load_raw(con, "demographics", fetch_acs_place())
+
+
 # --------------------------------------------------------------------------- #
 # Orchestration                                                                #
 # --------------------------------------------------------------------------- #
@@ -921,6 +1022,7 @@ BUILDERS = {
     "zoning": build_zoning,
     "earthquakes": build_earthquakes,
     "crime": build_crime,
+    "demographics": build_demographics,
 }
 
 # Topics with no machine-readable Glendora-scoped feed (see SOURCING.md). Logged
@@ -937,6 +1039,7 @@ DROPPED_TOPICS = (
 
 def main(tables: list[str] | None = None) -> None:
     """Build the requested raw tables (default: all) into ``glendora.duckdb``."""
+    load_env_file()
     for topic in DROPPED_TOPICS:
         log.info("DROP: %s", topic)
     con = duckdb.connect(str(DB_PATH))

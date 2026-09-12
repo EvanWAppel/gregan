@@ -29,9 +29,11 @@ Wildfire (2014 Colby Fire) · Weather (San Gabriel Dam) · San Gabriel River ·
 Groundwater (basin 4-013) · Air quality (in-city ozone `0016`, Pasadena PM2.5
 `2005`) · Earthquakes · Transit (Foothill Transit + LA Metro, A Line) ·
 Restaurant inspections · Parks · Street trees · Zoning (permits reframe) ·
-Crime (annual trend only, no incident map) · Overview
+Crime (annual trend only, no incident map) · Demographics · Overview
 
-Demographics waits on a free Census API key (`CENSUS_API_KEY`).
+Demographics is Census ACS 5-year place estimates (free `CENSUS_API_KEY` rate-limit
+token — local `.env`, Railway service variable at **build** time). `.env` is
+dockerignored so the key is never baked from a file.
 
 ## Stack
 

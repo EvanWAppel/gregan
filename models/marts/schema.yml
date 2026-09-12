@@ -75,3 +75,9 @@ models:
     columns:
       - name: year
         data_tests: [not_null, unique]
+  - name: mart_demographics
+    columns:
+      - name: geoid
+        data_tests: [not_null, unique]
+      - name: population
+        data_tests: [not_null]

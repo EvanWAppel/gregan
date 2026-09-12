@@ -4,8 +4,7 @@ Implementation task board for [`PRD.md`](./PRD.md). A port of the **robbins** (S
 engine to **Glendora, CA**. Read [`PRIMER.md`](./PRIMER.md) and [`SOURCING.md`](./SOURCING.md)
 first — the source map, the proposed `city_config.py`, and the open items.
 
-> **Status: live on Railway.** Inspections + wildfire shipped; remaining KEEP
-> topics (except Census demographics) landed 2026-09-12. Live:
+> **Status: live on Railway.** All KEEP topics including ACS demographics. Live:
 > https://gregan-production.up.railway.app
 
 ## How to use this board
@@ -139,7 +138,8 @@ county sources) → `mart_` table → `views/*.py` page. See `SOURCING.md` for i
 - [x] **TOPIC-parks** — 15 city GIS parks, acreage + map.
 - [x] **TOPIC-trees** — 14,062 city trees; vacant sites dropped; hexbin density. No condition field (maintenance class only).
 - [x] **TOPIC-earthquakes** — USGS FDSN, 92 earthquakes 2000–present (`eventtype=earthquake`).
-- [ ] **TOPIC-demographics** — Census ACS place `0630014` (needs `CENSUS_API_KEY`).
+- [x] **TOPIC-demographics** — ACS 5-year 2024 place 30014: pop 50,926, median age
+  40.6, median HH income $113,569. Free `CENSUS_API_KEY` from env / Railway.
 - [x] **TOPIC-zoning** *(permits reframe)* — `ZONING_1` / `ZONING_N_1` on layer 26 (867 coded polygons). No parcels layer.
 - [x] **TOPIC-firestations** *(fire reframe)* — three city-GIS stations on the wildfire page.
 - [x] **TOPIC-crime** *(reframe)* — CA DOJ annual, `NCICCode='Glendora'`, 41 years → 26 since 2000. Trend only.
@@ -158,9 +158,8 @@ short-term rentals, public art, fire/911 incident-level, reservoir levels.
 - [x] **DEPLOY-03** — GitHub Actions CI (ruff + ty + pytest + `dbt parse`; no warehouse).
 - [x] **DEPLOY-04** — Live: https://gregan-production.up.railway.app
 - [x] **DEPLOY-05** — README has live URL, three-pattern ingest table, dropped topics, local run + gates.
-- [ ] **DEPLOY-06** *(optional)* — Register in the portfolio `projects.toml` and wire
-  `gregan.evanappel.me`. **Apply branch protection to the new public repo** (global
-  guardrail) at repo-creation time.
+- [ ] **DEPLOY-06** *(optional)* — Register in the portfolio `projects.toml` with the
+  Railway URL. Custom domain `gregan.evanappel.me` deferred. Branch protection is on.
 
 ## Suggested sequencing
 
