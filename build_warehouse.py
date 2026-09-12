@@ -452,16 +452,27 @@ def transcode_bytes(data: bytes, encoding: str) -> str:
     return data.decode(encoding)
 
 
-def _download_transcoded(url: str, encoding: str) -> Path:
-    """Download a remote CSV and transcode ``encoding`` → UTF-8 to a temp file."""
-    resp = requests.get(url, timeout=CSV_TIMEOUT)
+def _download_to_temp(url: str, encoding: str | None = None) -> Path:
+    """GET a remote CSV with requests and write a local temp file.
+
+    DuckDB httpfs issues an HTTP HEAD that fails TLS against some hosts
+    (CA DOJ OpenJustice on Railway). Download here, then ``read_csv_auto`` a
+    local path. Pass ``encoding`` to transcode (e.g. cp1252) to UTF-8.
+    """
+    resp = requests.get(
+        url,
+        timeout=CSV_TIMEOUT,
+        headers={"User-Agent": "gregan/0.1 (glendora open-data)"},
+    )
     resp.raise_for_status()
-    text = transcode_bytes(resp.content, encoding)
-    fd, name = tempfile.mkstemp(suffix=".csv")
-    os.close(fd)
-    path = Path(name)
-    path.write_text(text, encoding="utf-8")
-    log.info("Downloaded + transcoded (%s→utf-8) %s → %s", encoding, url, name)
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+        path = Path(tmp.name)
+    if encoding:
+        path.write_text(transcode_bytes(resp.content, encoding), encoding="utf-8")
+        log.info("Downloaded + transcoded (%s→utf-8) %s → %s", encoding, url, path)
+    else:
+        path.write_bytes(resp.content)
+        log.info("Downloaded %s → %s (%d bytes)", url, path, len(resp.content))
     return path
 
 
@@ -475,18 +486,16 @@ def ingest_csv(
 ) -> None:
     """Ingest a CSV (local path or remote URL) straight into ``raw.<table>``.
 
-    Everything is read as text (``all_varchar``); the staging layer casts. This
-    is the path for LA County's static exports — hand DuckDB the item ``/data``
-    URL and let ``read_csv_auto`` read the whole file. Pass ``encoding`` for
-    non-UTF-8 sources (e.g. ``cp1252``): the file is downloaded and transcoded to
-    UTF-8 first. Because ``all_varchar`` hides the header row from the sniffer,
-    pass ``header=True`` for files that have one. Raises on zero rows.
+    Everything is read as text (``all_varchar``); the staging layer casts.
+    Remote URLs are downloaded with ``requests`` first — DuckDB httpfs is not
+    used (its HTTP HEAD fails TLS on some hosts). Pass ``encoding`` for
+    non-UTF-8 sources (e.g. ``cp1252``). Because ``all_varchar`` hides the
+    header row from the sniffer, pass ``header=True`` for files that have one.
+    Raises on zero rows.
     """
     con.execute("CREATE SCHEMA IF NOT EXISTS raw")
-    if encoding and source.startswith("http"):
-        source = str(_download_transcoded(source, encoding))
-    elif source.startswith("http"):
-        con.execute("INSTALL httpfs; LOAD httpfs;")
+    if source.startswith("http"):
+        source = str(_download_to_temp(source, encoding))
     opts = {"all_varchar": True, **read_opts}
     opt_sql = ", ".join(
         f"{k}={str(v).lower() if isinstance(v, bool) else repr(v)}"
