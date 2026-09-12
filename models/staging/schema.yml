@@ -19,3 +19,31 @@ models:
           - accepted_values:
               arguments:
                 values: ["A", "B", "C"]
+  - name: stg_fire_perimeters
+    description: CAL FIRE historic perimeters intersecting Glendora, one row per fire.
+    columns:
+      - name: objectid
+        data_tests:
+          - not_null
+          - unique
+      - name: year
+        data_tests:
+          - not_null
+      - name: gis_acres
+        data_tests:
+          - not_null
+  - name: stg_fire_stations
+    description: Three Glendora fire stations (LA County Fire).
+    columns:
+      - name: name
+        data_tests:
+          - not_null
+          - unique
+  - name: stg_fire_hazard_zones
+    description: FHSZ polygons (SRA 2007 + LRA 2011) intersecting Glendora.
+    columns:
+      - name: responsibility
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["SRA", "LRA"]

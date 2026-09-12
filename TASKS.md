@@ -131,8 +131,9 @@ Start after VS deploys. Each: fetch → `stg_` view (apply Glendora filter here 
 county sources) → `mart_` table → `views/*.py` page. See `SOURCING.md` for ids.
 
 - [ ] **TOPIC-inspections** — Restaurant inspections (LA County). ✅ = VS topic.
-- [ ] **TOPIC-wildfire** — CAL FIRE historic perimeters (`California_Historic_Fire_Perimeters/0`)
-  + Fire Hazard Severity Zones; map incl. the 2014 Colby Fire. **Identity anchor.**
+- [x] **TOPIC-wildfire** — CAL FIRE historic perimeters intersecting the Glendora bbox
+  (87 fires, incl. **2014 Colby Fire 1,952 ac**) + FHSZ SRA 2007 / LRA 2011 (14
+  polygons, vintage captioned). Map + decade chart + table. Identity anchor.
 - [ ] **TOPIC-weather** — NOAA GHCN-Daily `USC00047779` (San Gabriel Dam). Monthly
   climatology, temp band, records. Optional in-town precip hook `USC00043452`.
 - [ ] **TOPIC-river** — USGS NWIS site `11085000` (San Gabriel R): discharge + gage
@@ -153,8 +154,8 @@ county sources) → `mart_` table → `views/*.py` page. See `SOURCING.md` for i
   Context / landing figures.
 - [ ] **TOPIC-zoning** *(permits reframe)* — `Zoning_Glendora` FeatureServer layer 26
   (871 polygons). No parcels layer on the city hub.
-- [ ] **TOPIC-firestations** *(fire reframe)* — `Fire_Stations` layer 0 (3 points) +
-  wildfire perimeters (no incident feed exists).
+- [x] **TOPIC-firestations** *(fire reframe)* — three city-GIS stations plotted on
+  the wildfire page (no incident feed exists).
 - [ ] **TOPIC-crime** *(reframe)* — CA DOJ annual CSV, `NCICCode='Glendora'` (41 years).
   **No incident map.** Path: `.../dataset/2026-07/Crimes_and_Clearances_with_Arson-1985-2025.csv`.
 - [ ] **TOPIC-overview** — Landing page: warehouse-wide headline + themed KPI sections

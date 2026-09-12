@@ -20,3 +20,18 @@ sources:
         freshness:
           warn_after: {count: 60, period: day}
           error_after: {count: 180, period: day}
+      - name: fire_perimeters
+        description: >
+          CAL FIRE California Historic Fire Perimeters intersecting the Glendora
+          bounding box (envelope query, WGS84). Includes the 2014 Colby Fire.
+          One row per perimeter; GIS_ACRES is the polygon area (overlaps
+          double-count if summed). rings_json is the outer ring for the map.
+      - name: fire_stations
+        description: >
+          Glendora city GIS Fire_Stations FeatureServer/0 — three LA County Fire
+          stations as WGS84 points.
+      - name: fire_hazard_zones
+        description: >
+          CAL FIRE Fire Hazard Severity Zones intersecting the Glendora bbox.
+          SRA layer 0 (2007 vintage) + LRA layer 1 (2011 vintage). Not the 2025
+          FHSZ update — caption the vintage on the page.
