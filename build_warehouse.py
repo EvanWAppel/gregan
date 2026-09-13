@@ -22,6 +22,7 @@ import logging
 import os
 import socket
 import tempfile
+import time
 import urllib.parse
 from datetime import UTC, datetime
 from pathlib import Path
@@ -72,6 +73,11 @@ socket.getaddrinfo = _ipv4_first  # ty: ignore[invalid-assignment]
 DB_PATH = Path(__file__).parent / "glendora.duckdb"
 
 CSV_TIMEOUT = 180
+CSV_DOWNLOAD_ATTEMPTS = 3
+HTTP_USER_AGENT = (
+    "Mozilla/5.0 (compatible; gregan/0.1; +https://github.com/EvanWAppel/gregan)"
+)
+CRIME_EXTRACT = Path(__file__).parent / "data" / "crime_glendora.csv"
 CKAN_DEFAULT_HOST = "data.cnra.ca.gov"
 CKAN_PAGE_SIZE = 32_000
 CKAN_TIMEOUT = 180
@@ -457,14 +463,33 @@ def _download_to_temp(url: str, encoding: str | None = None) -> Path:
 
     DuckDB httpfs issues an HTTP HEAD that fails TLS against some hosts
     (CA DOJ OpenJustice on Railway). Download here, then ``read_csv_auto`` a
-    local path. Pass ``encoding`` to transcode (e.g. cp1252) to UTF-8.
+    local path. Retries on connection resets. Pass ``encoding`` to transcode
+    (e.g. cp1252) to UTF-8.
     """
-    resp = requests.get(
-        url,
-        timeout=CSV_TIMEOUT,
-        headers={"User-Agent": "gregan/0.1 (glendora open-data)"},
-    )
-    resp.raise_for_status()
+    last_exc: BaseException | None = None
+    for attempt in range(1, CSV_DOWNLOAD_ATTEMPTS + 1):
+        try:
+            resp = requests.get(
+                url,
+                timeout=CSV_TIMEOUT,
+                headers={"User-Agent": HTTP_USER_AGENT},
+            )
+            resp.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            last_exc = exc
+            log.warning(
+                "download %s attempt %d/%d failed: %s",
+                url,
+                attempt,
+                CSV_DOWNLOAD_ATTEMPTS,
+                exc,
+            )
+            if attempt < CSV_DOWNLOAD_ATTEMPTS:
+                time.sleep(2 * attempt)
+    else:
+        assert last_exc is not None
+        raise last_exc
     with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
         path = Path(tmp.name)
     if encoding:
@@ -1003,8 +1028,24 @@ def build_earthquakes(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def build_crime(con: duckdb.DuckDBPyConnection) -> None:
-    """CA DOJ Crimes & Clearances annual summary, Glendora PD only."""
-    ingest_csv(con, "crime", cfg.CA_DOJ_CRIME_CSV, header=True)
+    """CA DOJ Crimes & Clearances annual summary, Glendora PD only.
+
+    The statewide OpenJustice CSV is the live source. Railway's builders get
+    connection-reset by that host, so a committed Glendora-only extract is the
+    deploy fallback (logged). Filter still runs so a stale extract of the full
+    file would still narrow.
+    """
+    try:
+        ingest_csv(con, "crime", cfg.CA_DOJ_CRIME_CSV, header=True)
+    except requests.RequestException as exc:
+        if not CRIME_EXTRACT.exists():
+            raise
+        log.warning(
+            "CA DOJ CSV unreachable (%s); using committed Glendora extract %s",
+            exc,
+            CRIME_EXTRACT,
+        )
+        ingest_csv(con, "crime", str(CRIME_EXTRACT), header=True)
     filter_table_to_city(con, "crime", "NCICCode", city=cfg.CA_DOJ_CRIME_NCIC)
 
 
