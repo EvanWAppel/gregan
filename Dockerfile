@@ -12,9 +12,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # each county-wide feed to Glendora, then materializes the dbt marts). The DB
 # stays out of git and is rebuilt fresh on every deploy.
 COPY . .
-# CENSUS_API_KEY is a free ACS rate-limit token (not a billed secret). Railway
-# injects it at build time; .env is dockerignored so the key is never baked
-# from a local file.
+# Railway only injects service variables into a Dockerfile RUN if they are
+# declared as ARG. CENSUS_API_KEY is a free ACS rate-limit token (not billed);
+# .env is dockerignored so the key is never copied from a local file.
+ARG CENSUS_API_KEY
+ENV CENSUS_API_KEY=$CENSUS_API_KEY
 RUN dbt deps && python build_warehouse.py && dbt build --profiles-dir .
 
 # Railway injects $PORT at runtime; default to 8501 for local runs. JSON exec
