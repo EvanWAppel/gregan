@@ -36,4 +36,18 @@ st.altair_chart(
     ),
     width="stretch",
 )
-st.dataframe(annual, width="stretch", hide_index=True)
+display = annual.rename(
+    columns={
+        "year": "Year",
+        "violent": "Violent",
+        "property": "Property",
+        "homicide": "Homicide",
+        "rape": "Rape",
+        "robbery": "Robbery",
+        "aggravated_assault": "Aggravated assault",
+        "burglary": "Burglary",
+        "vehicle_theft": "Vehicle theft",
+        "larceny": "Larceny",
+    }
+)
+st.dataframe(display, width="stretch", hide_index=True)

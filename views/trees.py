@@ -15,14 +15,14 @@ st.caption(
 s = query("select * from main.mart_trees_summary").iloc[0]
 c1, c2, c3 = st.columns(3)
 c1.metric("Trees", f"{int(s['total_trees']):,}")
-c2.metric("Species", f"{int(s['species_count']):,}")
+c2.metric("Common types", f"{int(s['species_count']):,}")
 c3.metric("Genera", f"{int(s['genus_count']):,}")
 
 st.divider()
 species = query(
     "select common_name, tree_count from main.mart_trees_by_species order by tree_count desc limit 15"
 )
-st.subheader("Most common species")
+st.subheader("Most common trees")
 st.altair_chart(
     alt.Chart(species).mark_bar(color="#2e8b57").encode(
         x=alt.X("tree_count:Q", title="Trees"),
@@ -61,7 +61,9 @@ st.pydeck_chart(
                 elevation_scale=4,
                 extruded=True,
                 coverage=0.9,
+                pickable=True,
             )
         ],
+        tooltip={"text": "Trees in this cell: {elevationValue}"},
     )
 )

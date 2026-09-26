@@ -1,9 +1,13 @@
 """Headless render smoke test for the Streamlit app (no browser needed).
 
-Uses Streamlit's ``AppTest`` to run the entrypoint in-process and assert the page
-renders without raising. Skipped when the DuckDB warehouse has not been built
-locally (e.g. in CI), so the suite stays network-free — the Docker image builds
-the warehouse before serving, and this guards local regressions.
+Uses Streamlit's ``AppTest`` to run the entrypoint and every topic page in-process
+and assert each renders without raising. Skipped when the DuckDB warehouse has not
+been built locally (e.g. in CI), so the suite stays network-free — the Docker image
+builds the warehouse before serving, and this guards local regressions.
+
+``overview.py`` is exercised through the entrypoint (``streamlit_app.py``) rather than
+standalone: its ``st.page_link`` calls need the ``st.navigation`` context to resolve
+page URLs, which only exists when the app runs via the entrypoint.
 """
 
 from __future__ import annotations
@@ -17,22 +21,49 @@ pytestmark = pytest.mark.skipif(
     reason=f"warehouse {DB_PATH.name} not built (run build_warehouse.py + dbt build)",
 )
 
+# Topic pages that can render standalone (everything except overview — see module docstring).
+TOPIC_PAGES = [
+    "air_quality.py",
+    "crime.py",
+    "demographics.py",
+    "earthquakes.py",
+    "groundwater.py",
+    "parks.py",
+    "restaurant_inspections.py",
+    "river.py",
+    "transit.py",
+    "trees.py",
+    "weather.py",
+    "wildfire.py",
+    "zoning.py",
+]
 
-def test_overview_page_renders():
+
+def _run(path):
     from streamlit.testing.v1 import AppTest
 
-    app = DB_PATH.parent / "streamlit_app.py"
-    at = AppTest.from_file(str(app), default_timeout=30).run()
+    return AppTest.from_file(str(path), default_timeout=60).run()
+
+
+def test_entrypoint_renders_overview():
+    """The entrypoint boots navigation and renders the default (overview) page."""
+    at = _run(DB_PATH.parent / "streamlit_app.py")
 
     assert not at.exception, [(e.type, e.value) for e in at.exception]
     assert "Glendora" in at.title[0].value
 
 
-def test_inspections_page_renders():
-    from streamlit.testing.v1 import AppTest
+@pytest.mark.parametrize("page", TOPIC_PAGES)
+def test_topic_page_renders(page):
+    """Every topic page renders without raising and shows a title."""
+    at = _run(DB_PATH.parent / "views" / page)
 
-    page = DB_PATH.parent / "views" / "restaurant_inspections.py"
-    at = AppTest.from_file(str(page), default_timeout=30).run()
+    assert not at.exception, [(e.type, e.value) for e in at.exception]
+    assert at.title and at.title[0].value
+
+
+def test_inspections_page_details():
+    at = _run(DB_PATH.parent / "views" / "restaurant_inspections.py")
 
     assert not at.exception, [(e.type, e.value) for e in at.exception]
     assert at.title[0].value == "🍽️ Restaurant Inspections"
@@ -41,11 +72,8 @@ def test_inspections_page_renders():
     assert len(at.dataframe) == 1
 
 
-def test_wildfire_page_renders():
-    from streamlit.testing.v1 import AppTest
-
-    page = DB_PATH.parent / "views" / "wildfire.py"
-    at = AppTest.from_file(str(page), default_timeout=30).run()
+def test_wildfire_page_details():
+    at = _run(DB_PATH.parent / "views" / "wildfire.py")
 
     assert not at.exception, [(e.type, e.value) for e in at.exception]
     assert at.title[0].value == "🔥 Wildfire"

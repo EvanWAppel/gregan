@@ -1,5 +1,17 @@
 version: 2
 
+# Test conventions
+# ----------------
+# * Every mart declares its grain with not_null + unique (or dbt_utils
+#   unique_combination_of_columns for composite grains).
+# * Spatial marts get a dbt_utils.accepted_range on lat/lon. Two bands:
+#   - CITY  (lat 34.0–34.3, lon -118.0 to -117.7): marts scoped to Glendora
+#     city limits (parks, street trees, fire stations, zoning, earthquakes bbox).
+#   - REGION (lat 33.5–34.6, lon -119.0 to -117.0): marts that are deliberately
+#     regional (groundwater = whole San Gabriel Valley basin, air = includes the
+#     Pasadena PM2.5 monitor, fire perimeters = regional CAL FIRE polygons).
+#   The bands are sanity gates (catch swapped/garbage coords), not tight fences.
+
 models:
   - name: mart_inspections_by_grade
     description: Grade distribution (A/B/C) across Glendora inspection activities.
@@ -23,6 +35,12 @@ models:
         data_tests:
           - not_null
           - unique
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -119.0, max_value: -117.0}
   - name: mart_fire_by_decade
     description: Fire count and GIS acres by decade.
     columns:
@@ -37,40 +55,185 @@ models:
         data_tests:
           - not_null
           - unique
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
   - name: mart_fire_hazard_zones
     description: FHSZ polygons intersecting Glendora (SRA 2007 + LRA 2011).
     columns:
       - name: objectid
         data_tests:
           - not_null
+
   - name: mart_weather_annual
     columns:
       - name: year
         data_tests: [not_null, unique]
+      - name: days_observed
+        data_tests: [not_null]
+  - name: mart_weather_monthly
+    description: Daily-mean climatology by calendar month (12 rows).
+    columns:
+      - name: month_num
+        data_tests: [not_null, unique]
+  - name: mart_weather_records
+    description: Hottest / coldest / wettest day on record.
+    columns:
+      - name: record_type
+        data_tests: [not_null, unique]
+
   - name: mart_river_daily
     columns:
       - name: obs_date
         data_tests: [not_null]
+  - name: mart_river_monthly
+    description: Monthly discharge summary for the San Gabriel River gage.
+    columns:
+      - name: month
+        data_tests: [not_null, unique]
+
   - name: mart_gw_stations
     columns:
       - name: site_code
         data_tests: [not_null, unique]
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -119.0, max_value: -117.0}
+  - name: mart_gw_annual
+    description: Basin-wide annual median groundwater elevation (shifting well panel).
+    columns:
+      - name: year
+        data_tests: [not_null, unique]
+  - name: mart_gw_levels
+    description: One row per well measurement, joined to the well name.
+    columns:
+      - name: site_code
+        data_tests: [not_null]
+      - name: msmt_date
+        data_tests: [not_null]
+
+  - name: mart_air_sites
+    description: One row per air monitor (Glendora ozone, Pasadena PM2.5).
+    columns:
+      - name: site_num
+        data_tests: [not_null, unique]
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -119.0, max_value: -117.0}
+  - name: mart_air_monthly
+    description: Monthly avg/max AQI per pollutant (grain = month + pollutant).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [obs_month, pollutant]
+  - name: mart_air_category_days
+    description: Day counts by AQI category (one row per category).
+    columns:
+      - name: aqi_category
+        data_tests: [not_null, unique]
+      - name: severity
+        data_tests:
+          - accepted_values: {values: [1, 2, 3, 4, 5, 6], quote: false}
+  - name: mart_air_worst_days
+    description: The 15 worst AQI days (one row per day).
+    columns:
+      - name: obs_date
+        data_tests: [not_null, unique]
+
   - name: mart_transit_monthly
     columns:
       - name: ridership_month
         data_tests: [not_null, unique]
+  - name: mart_transit_by_mode
+    description: Total boardings by NTD mode (systemwide, both agencies).
+    columns:
+      - name: mode_label
+        data_tests: [not_null, unique]
+  - name: mart_transit_by_agency
+    description: Total boardings by agency (systemwide).
+    columns:
+      - name: agency_label
+        data_tests: [not_null, unique]
+  - name: mart_transit_light_rail_monthly
+    description: LA Metro light-rail monthly boardings (systemwide).
+    columns:
+      - name: ridership_month
+        data_tests: [not_null, unique]
+
   - name: mart_parks
     columns:
       - name: acres
         data_tests: [not_null]
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+
   - name: mart_trees_summary
     columns:
       - name: total_trees
         data_tests: [not_null]
+  - name: mart_trees_by_genus
+    description: Tree count by genus.
+    columns:
+      - name: genus
+        data_tests: [not_null, unique]
+  - name: mart_trees_by_species
+    description: Tree count by common name.
+    columns:
+      - name: common_name
+        data_tests: [not_null, unique]
+  - name: mart_trees_map
+    description: Living/plantable street trees as map points (bbox-filtered).
+    columns:
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+
+  - name: mart_zoning
+    description: Glendora zoning polygons (centroids for the map).
+    columns:
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+  - name: mart_zoning_by_code
+    description: Polygon count by zoning code.
+    columns:
+      - name: zoning
+        data_tests: [not_null, unique]
+
   - name: mart_earthquakes
     columns:
       - name: event_id
         data_tests: [not_null, unique]
+      - name: latitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: longitude
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+  - name: mart_earthquakes_annual
+    description: Earthquake count and magnitude summary by year.
+    columns:
+      - name: year
+        data_tests: [not_null, unique]
+
   - name: mart_crime_annual
     columns:
       - name: year

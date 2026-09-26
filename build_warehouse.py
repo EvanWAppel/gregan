@@ -322,6 +322,7 @@ _NTD_MODE_LABELS = {
     "RB": "Bus Rapid Transit",
     "TB": "Trolleybus",
     "LR": "Light Rail",
+    "HR": "Heavy Rail",
     "SR": "Streetcar",
     "CR": "Commuter Rail",
     "MG": "Monorail / Automated Guideway",
@@ -908,7 +909,12 @@ def build_groundwater(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def build_air_quality(con: duckdb.DuckDBPyConnection) -> None:
-    """EPA AQS daily PM2.5 + Ozone; keep Glendora ozone + Pasadena PM2.5 sites."""
+    """EPA AQS daily PM2.5 + Ozone for the Glendora (0016) and Pasadena (2005) sites.
+
+    Raw keeps every AQI-bearing daily row for both sites; ``stg_air_quality`` then
+    scopes each monitor to the pollutant it represents (in-city ozone from 0016,
+    nearest PM2.5 from 2005) so the two are never blended under one label.
+    """
     counties = {cfg.AQS_COUNTY}
     keep_sites = {cfg.AQS_SITE_GLENDORA, cfg.AQS_SITE_PM25_NEAREST}
     frames: list[pd.DataFrame] = []

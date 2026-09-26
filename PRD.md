@@ -2,7 +2,9 @@
 
 > A Glendora, CA open-data explorer built on the Elvis → robbins → groening engine.
 > Read [`PRIMER.md`](./PRIMER.md) and [`SOURCING.md`](./SOURCING.md) first.
-> Status: **Plan v1, 2026-08-24** (no code yet). House rules: [`CLAUDE.md`](./CLAUDE.md).
+> Status: **Shipped — live on Railway** (plan authored 2026-08-24). All KEEP/REFRAME
+> pages are built and deployed: https://gregan-production.up.railway.app
+> House rules: [`CLAUDE.md`](./CLAUDE.md).
 
 ## 1. Summary
 
@@ -80,10 +82,10 @@ the build timestamp for a freshness banner.
 ## 8. Deploy
 
 Railway from the `Dockerfile`; the build stage runs `build_warehouse.py && dbt build`
-to bake `glendora.duckdb`; runtime serves Streamlit on `$PORT`. Deferred until the app
-exists (this task is plan-only). If/when hosted, register in the portfolio
-`projects.toml` and wire `gregan.evanappel.me` — and apply branch protection to the new
-public repo per the global guardrail.
+to bake `glendora.duckdb`; runtime serves Streamlit on `$PORT`. **Live** at
+https://gregan-production.up.railway.app, registered in the portfolio `projects.toml`;
+branch protection is applied per the global guardrail. A custom `gregan.evanappel.me`
+subdomain is deferred.
 
 ## 9. Secrets & guardrails
 
@@ -104,4 +106,6 @@ public repo per the global guardrail.
 
 Target = Glendora, city-centered / county-backed. Stack = identical to robbins +
 `fetch_ckan()`. Scope = mirror robbins where data exists, lead with foothills identity.
-Codename = `gregan`. This task = **plan only**.
+Codename = `gregan`. The plan was authored 2026-08-24 and has since **shipped** — see
+[`TASKS.md`](./TASKS.md) for the build log and [`DECISIONS.md`](./DECISIONS.md) for the
+trade-offs made during implementation.

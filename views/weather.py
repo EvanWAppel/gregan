@@ -17,12 +17,15 @@ normals = query(
     "from main.mart_weather_monthly order by month_num"
 )
 annual = query(
-    "select year, total_precip_in, rain_days from main.mart_weather_annual order by year"
+    "select year, total_precip_in, rain_days, days_observed "
+    "from main.mart_weather_annual order by year"
 )
 records = query("select record_type, obs_date, value from main.mart_weather_records")
 
 rec = {r.record_type: r for r in records.itertuples()}
-full_years = annual[annual["year"] < annual["year"].max()]
+# Only chart years with near-complete observation (drops partial boundary years —
+# the cooperative station's first and current years — so annual totals aren't understated).
+full_years = annual[annual["days_observed"] >= 350]
 last_full = full_years.iloc[-1]
 
 c1, c2, c3, c4 = st.columns(4)
@@ -32,7 +35,7 @@ c3.metric("Wettest day", rec["Wettest day"].value, rec["Wettest day"].obs_date.s
 c4.metric(f"Rain in {int(last_full.year)}", f"{last_full.total_precip_in:.1f} in")
 
 st.divider()
-st.subheader("Average precipitation by month")
+st.subheader("Average daily precipitation by month")
 st.altair_chart(
     alt.Chart(normals).mark_bar(color="#2980b9").encode(
         x=alt.X("month_name:N", sort=list(normals["month_name"]), title=None),
