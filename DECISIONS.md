@@ -97,3 +97,14 @@ The durable *why*. One entry per decision with a **real trade-off** — what was
 - **Why:** those topics exist only behind human-facing portals, not machine-readable
   feeds. Logging the drops keeps the omissions visible and honest rather than pretending
   the data was never considered.
+
+## D10 — Present the explorer as a field guide with visible engineering context
+
+- **Chose:** a shared Streamlit theme, an illustrated overview, curated topic entry
+  points, and a concise public-source-to-warehouse pipeline with repository links.
+- **Rejected:** replacing the existing Streamlit application with a separate frontend.
+- **Why:** recruiters can quickly understand both the product and its engineering,
+  while the existing topic analysis, dbt models, and deployment architecture remain
+  usable. **Trade-off:** a small presentation stylesheet depends on Streamlit's DOM
+  attributes and should be visually checked when Streamlit is upgraded.
+- **Confirmed:** the user approved the redesign and requested deployment on 2026-09-26.

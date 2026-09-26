@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" role="img" aria-label="Illustration of the San Gabriel foothills" preserveAspectRatio="xMidYMid slice">
+      <rect width="520" height="300" fill="#e4e8d8"/>
+      <circle cx="399" cy="69" r="31" fill="#d7b86d"/>
+      <g fill="none" stroke="#cbd2bf" stroke-width="1">
+        <path d="M0 40 Q120 0 240 40 T520 30 M0 60 Q120 20 240 60 T520 50 M0 80 Q120 40 240 80 T520 70 M0 100 Q120 60 240 100 T520 90"/>
+      </g>
+      <path d="M-20 217 L54 128 L104 166 L186 63 L253 143 L296 111 L382 180 L457 114 L540 194 V300 H-20Z" fill="#a4b299"/>
+      <path d="M186 63 L169 154 L207 127 L253 143Z M457 114 L427 194 L489 171Z" fill="#c7ceba"/>
+      <path d="M-20 239 L75 176 L142 212 L230 144 L293 204 L360 172 L443 222 L540 170 V300 H-20Z" fill="#6e896f"/>
+      <path d="M-20 280 Q88 199 199 258 T390 243 T540 253 V300 H-20Z" fill="#3d6652"/>
+      <g fill="none" stroke="#afbf99" opacity=".5">
+        <path d="M-20 265 Q80 216 177 258 T365 255 T540 241 M-20 276 Q80 227 177 269 T365 266 T540 252 M-20 287 Q80 238 177 280 T365 277 T540 263"/>
+      </g>
+      <path d="M262 300 Q251 281 295 269 T322 245" fill="none" stroke="#e0d8ac" stroke-width="3"/>
+    </svg>

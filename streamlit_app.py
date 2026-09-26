@@ -8,27 +8,37 @@ navigation; each page lives in ``views/`` and queries the dbt marts via
 
 import streamlit as st
 
+from app_ui import apply_theme, sidebar_identity
+
 st.set_page_config(
-    page_title="Glendora Open-Data Explorer",
-    page_icon="⛰️",
+    page_title="Gregan | Glendora Field Guide",
+    page_icon=":material/landscape:",
     layout="wide",
 )
 
+apply_theme()
+
 pages = [
-    st.Page("views/overview.py", title="Overview", icon="⛰️", default=True),
-    st.Page("views/wildfire.py", title="Wildfire", icon="🔥"),
-    st.Page("views/weather.py", title="Weather", icon="🌧️"),
-    st.Page("views/river.py", title="River", icon="🌊"),
-    st.Page("views/groundwater.py", title="Groundwater", icon="💧"),
-    st.Page("views/air_quality.py", title="Air Quality", icon="💨"),
-    st.Page("views/earthquakes.py", title="Earthquakes", icon="🌍"),
-    st.Page("views/transit.py", title="Transit", icon="🚌"),
-    st.Page("views/restaurant_inspections.py", title="Restaurant Inspections", icon="🍽️"),
-    st.Page("views/parks.py", title="Parks", icon="🌳"),
-    st.Page("views/trees.py", title="Street Trees", icon="🌲"),
-    st.Page("views/zoning.py", title="Zoning", icon="🗺️"),
-    st.Page("views/crime.py", title="Crime", icon="🚓"),
-    st.Page("views/demographics.py", title="Demographics", icon="👥"),
+    st.Page("views/overview.py", title="Overview", icon=":material/landscape:", default=True),
+    st.Page("views/wildfire.py", title="Wildfire", icon=":material/local_fire_department:"),
+    st.Page("views/weather.py", title="Weather", icon=":material/rainy:"),
+    st.Page("views/river.py", title="River", icon=":material/water:"),
+    st.Page("views/groundwater.py", title="Groundwater", icon=":material/water_drop:"),
+    st.Page("views/air_quality.py", title="Air Quality", icon=":material/air:"),
+    st.Page("views/earthquakes.py", title="Earthquakes", icon=":material/public:"),
+    st.Page("views/transit.py", title="Transit", icon=":material/directions_transit:"),
+    st.Page("views/restaurant_inspections.py", title="Restaurant Inspections", icon=":material/restaurant:"),
+    st.Page("views/parks.py", title="Parks", icon=":material/park:"),
+    st.Page("views/trees.py", title="Street Trees", icon=":material/forest:"),
+    st.Page("views/zoning.py", title="Zoning", icon=":material/map:"),
+    st.Page("views/crime.py", title="Crime", icon=":material/shield:"),
+    st.Page("views/demographics.py", title="Demographics", icon=":material/groups:"),
 ]
 
-st.navigation(pages).run()
+navigation = st.navigation({
+    "Field guide": pages[:1],
+    "Environment & foothills": pages[1:7],
+    "Life in the city": pages[7:],
+})
+sidebar_identity()
+navigation.run()
