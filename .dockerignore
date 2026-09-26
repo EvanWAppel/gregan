@@ -10,5 +10,6 @@ glendora.duckdb
 glendora.duckdb.wal
 .dbt
 .DS_Store
-.streamlit
+.streamlit/*
+!.streamlit/config.toml
 .env
