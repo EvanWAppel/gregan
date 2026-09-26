@@ -3,6 +3,7 @@
 select
     extract(year from obs_date)                       as year,
     sum(precip_in)                                    as total_precip_in,
+    count(*)                                          as days_observed,
     count(*) filter (where precip_in > 0.01)          as rain_days,
     avg(tmax_f)                                       as avg_tmax_f,
     avg(tmin_f)                                       as avg_tmin_f

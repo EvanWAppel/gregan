@@ -21,7 +21,8 @@ Glendora's data splits three ways — that shape drives the warehouse:
 | **DROP** | logged on every `build_warehouse.py` run | Building permits, business licenses, STR, public art, fire/911 incidents, reservoir levels |
 
 `data.lacounty.gov` is an ArcGIS Hub, **not Socrata**. Restaurant inspections are a
-cp1252 CSV export filtered `FACILITY CITY = 'GLENDORA'` (101,244 → 507 rows).
+cp1252 CSV export filtered `FACILITY CITY = 'GLENDORA'` — the county-wide file narrows
+to **507 Glendora inspections across 262 facilities** (the page shows facilities).
 
 ## Pages
 
@@ -47,8 +48,9 @@ All city-specific ids live in [`city_config.py`](./city_config.py).
 
 ```bash
 uv sync
-uv run python build_warehouse.py        # fetch sources → raw tables
-uv run dbt build --profiles-dir .        # staging views + mart tables
+uv run dbt deps                          # install dbt packages (dbt_utils)
+uv run python build_warehouse.py         # fetch sources → raw tables
+uv run dbt build --profiles-dir .        # staging views + mart tables + data tests
 uv run streamlit run streamlit_app.py    # serve the app
 ```
 

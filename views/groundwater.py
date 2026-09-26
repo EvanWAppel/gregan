@@ -17,7 +17,7 @@ stations = query(
     "select site_code, well_name, well_use, latitude, longitude from main.mart_gw_stations"
 )
 annual = query(
-    "select year, median_gwe_ft, median_depth_ft, reading_count "
+    "select year, median_gwe_ft, median_depth_ft, reading_count, station_count "
     "from main.mart_gw_annual order by year"
 )
 c1, c2, c3 = st.columns(3)
@@ -27,11 +27,21 @@ c3.metric("Years of record", f"{int(annual['year'].min())}–{int(annual['year']
 
 st.divider()
 st.subheader("Basin median groundwater elevation")
+st.caption(
+    "Median across all wells reporting that year. The reporting panel changes "
+    "year to year, so sparse early years (few wells) are indicative, not precise "
+    "— hover for the well count behind each point."
+)
 st.altair_chart(
     alt.Chart(annual).mark_line(point=True, color="#1565c0").encode(
         x=alt.X("year:O", title=None),
         y=alt.Y("median_gwe_ft:Q", title="Median GWE (ft NAVD88)", scale=alt.Scale(zero=False)),
-        tooltip=["year", alt.Tooltip("median_gwe_ft:Q", format=".1f"), "reading_count"],
+        tooltip=[
+            "year",
+            alt.Tooltip("median_gwe_ft:Q", format=".1f"),
+            alt.Tooltip("station_count:Q", title="wells"),
+            alt.Tooltip("reading_count:Q", title="readings"),
+        ],
     ),
     width="stretch",
 )

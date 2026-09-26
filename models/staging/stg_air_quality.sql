@@ -39,3 +39,11 @@ select
     end as aqi_category
 from deduped
 where obs_date is not null
+  -- Scope each monitor to the pollutant it represents (see city_config AQS_SITE_*):
+  -- in-city ozone from Glendora (site 0016); nearest live PM2.5 from Pasadena
+  -- (site 2005). Pasadena also reports ozone, which we drop here so the "Ozone"
+  -- series stays purely in-city rather than blending two monitors under one label.
+  and (
+    (site_num = '0016' and pollutant = 'Ozone')
+    or (site_num = '2005' and pollutant like 'PM2.5%')
+  )

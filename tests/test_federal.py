@@ -95,6 +95,7 @@ def test_parse_earthquakes_zero_rows_raises():
 def test_ntd_mode_label():
     assert bw.ntd_mode_label("MB") == "Bus"
     assert bw.ntd_mode_label("lr") == "Light Rail"
+    assert bw.ntd_mode_label("HR") == "Heavy Rail"
     assert bw.ntd_mode_label("ZZ") == "ZZ"
 
 

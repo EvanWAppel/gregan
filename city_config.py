@@ -36,9 +36,9 @@ GLENDORA_BBOX = {"lat": (34.09, 34.20), "lon": (-117.92, -117.80)}
 
 # --- City-native ArcGIS (Glendora GIS Hub) — prefer where it covers a topic ---
 GLENDORA_ARCGIS = "https://gis.cityofglendora.org/arcgis/rest/services/Data"
-TREES = (GLENDORA_ARCGIS, "Glendora_Trees", 0)  # VERIFIED — 14,062 points
+TREES = (GLENDORA_ARCGIS, "Glendora_Trees", 0)  # VERIFIED — 14,062 inventory points (11,278 living/plantable after staging drops vacant sites + stumps)
 PARKS = (GLENDORA_ARCGIS, "Parks", 1)  # VERIFIED — 15 polygons
-ZONING = (GLENDORA_ARCGIS, "Zoning_Glendora", 26)  # VERIFIED — 871 polygons (layer id 26, not 0)
+ZONING = (GLENDORA_ARCGIS, "Zoning_Glendora", 26)  # VERIFIED — 871 raw polygons (867 after staging drops blank codes; layer id 26, not 0)
 FIRE_STATIONS = (GLENDORA_ARCGIS, "Fire_Stations", 0)  # VERIFIED — 3 points
 # No parcels FeatureServer on the city hub (Buildings_Glendora is building footprints).
 
