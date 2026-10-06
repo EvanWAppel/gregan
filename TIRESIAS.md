@@ -46,3 +46,6 @@ the data. These claims could not be established from code; each says how to chec
 15. `mart_earthquakes.depth_km` reference not stated; `place` format described without values.
 16. `mart_trees_by_species.common_name`: may have case/spelling variants as separate rows.
 17. `mart_transit_*`: latest month may be preliminary (not claimed in the docs).
+18. `mart_fire_perimeters.is_colby`: set from `fire_name = 'COLBY'` with no year
+    check; the wildfire page also filters year = 2014. Check whether more than one
+    COLBY perimeter exists.

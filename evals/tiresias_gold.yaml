@@ -85,8 +85,8 @@ cases:
   - id: ood_live_air
     question: What is the air quality right now?
     expect: abstain
-  - id: no_such_data_home_prices
-    question: What is the median home sale price this year?
+  - id: no_such_data_home_sales
+    question: How many homes sold in Glendora last month?
     expect: abstain
   - id: no_such_data_schools
     question: Which Glendora school has the best test scores?

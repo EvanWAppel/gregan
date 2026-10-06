@@ -102,7 +102,7 @@ models:
           Fire cause label decoded from CAL FIRE's cause code (e.g. 'Lightning',
           'Arson', 'Equipment Use', 'Unknown / Unidentified'); NULL if no code.
       - name: is_colby
-        description: True for the 2014 Colby Fire (fire_name = 'COLBY'), the city's landmark fire; false otherwise.
+        description: True where fire_name = 'COLBY' (any year; set from the name alone). For the city's landmark 2014 Colby Fire also filter year = 2014.
       - name: longitude
         description: Map label point — vertex-average of the perimeter's outer ring, decimal degrees WGS84 (approximate; may fall outside the polygon).
         data_tests:
@@ -517,7 +517,7 @@ models:
   - name: mart_trees_summary
     description: >-
       Single-row summary of the Glendora street-tree inventory (city GIS), counting
-      living/plantable trees only — vacant sites, stumps, 'unknown' entries and points
+      living trees only — vacant sites, stumps, 'unknown' entries and points
       without coordinates are excluded. Street/public trees, not total canopy.
     columns:
       - name: total_trees
@@ -547,7 +547,7 @@ models:
         description: Number of street trees with this common name.
   - name: mart_trees_map
     description: >-
-      Living/plantable street trees as map points (bbox-filtered). One row per tree
+      Living street trees as map points (bbox-filtered). One row per tree
       inside the Glendora bbox; trees outside the box are dropped, so counts can be
       lower than mart_trees_summary. Use mart_trees_summary for totals.
     columns:
