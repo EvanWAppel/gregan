@@ -1,0 +1,143 @@
+# Tiresias config for gregan (Glendora, CA open data). Engine:
+# github.com/EvanWAppel/tiresias, pinned in pyproject.toml / requirements.txt.
+# Check with `uv run tiresias check`; calibrate with `uv run tiresias calibrate`.
+city: Glendora
+blurb: >-
+  wildfire perimeters and hazard zones, weather, the San Gabriel River, groundwater,
+  air quality, earthquakes, regional transit ridership, restaurant inspections,
+  parks, street trees, zoning, crime, and census demographics
+warehouse: glendora.duckdb
+dbt_target: target
+metrics: metrics.yml
+gold:
+  answers: evals/tiresias_gold.yaml
+  retrieval: evals/tiresias_retrieval_gold.yaml
+
+tables:
+  schemas: [main]
+  # Every mart is analytic; none is a sample, QA table, or build metadata.
+  allowed:
+    - mart_air_category_days
+    - mart_air_monthly
+    - mart_air_sites
+    - mart_air_worst_days
+    - mart_crime_annual
+    - mart_demographics
+    - mart_earthquakes
+    - mart_earthquakes_annual
+    - mart_fire_by_decade
+    - mart_fire_hazard_zones
+    - mart_fire_perimeters
+    - mart_fire_stations
+    - mart_gw_annual
+    - mart_gw_levels
+    - mart_gw_stations
+    - mart_inspections_by_grade
+    - mart_inspections_facilities
+    - mart_parks
+    - mart_river_daily
+    - mart_river_monthly
+    - mart_transit_by_agency
+    - mart_transit_by_mode
+    - mart_transit_light_rail_monthly
+    - mart_transit_monthly
+    - mart_trees_by_genus
+    - mart_trees_by_species
+    - mart_trees_map
+    - mart_trees_summary
+    - mart_weather_annual
+    - mart_weather_monthly
+    - mart_weather_recent
+    - mart_weather_records
+    - mart_zoning
+    - mart_zoning_by_code
+  excluded: []
+  # Polygon outlines and marker sizes drawn by the map pages; no analytic meaning.
+  map_only_columns:
+    mart_fire_perimeters: [rings_json]
+    mart_fire_hazard_zones: [rings_json]
+    mart_zoning: [rings_json]
+    mart_parks: [dot_radius]
+
+examples:
+  - question: Which wildfires burned the most acres near Glendora?
+    guidance: Use mart_fire_perimeters ordered by gis_acres (each fire's whole area, not only the part inside Glendora).
+    grounds: [mart_fire_perimeters]
+  - question: How many fires were there each decade?
+    guidance: Use mart_fire_by_decade (fire_count, gis_acres by decade).
+    grounds: [mart_fire_by_decade]
+  - question: What is the wettest month of the year?
+    guidance: Use mart_weather_monthly; avg_precip_in is the mean DAILY rain, so compare months by it or multiply by days in the month for a monthly total.
+    grounds: [mart_weather_monthly]
+  - question: How much rain fell each year?
+    guidance: Use mart_weather_annual (total_precip_in, rain_days by year).
+    grounds: [mart_weather_annual]
+  - question: How has the San Gabriel River's flow changed over time?
+    guidance: Use mart_river_monthly (avg_cfs, min_cfs, max_cfs by month) or mart_river_daily for daily discharge_cfs.
+    grounds: [mart_river_monthly, mart_river_daily]
+  - question: How have groundwater levels changed?
+    guidance: Use mart_gw_annual (median_gwe_ft, median_depth_ft by year) for the San Gabriel Valley basin.
+    grounds: [mart_gw_annual]
+  - question: How many unhealthy air days were there?
+    guidance: Use mart_air_category_days (day_count by aqi_category) or mart_air_monthly for AQI by pollutant.
+    grounds: [mart_air_category_days, mart_air_monthly]
+  - question: What was the largest earthquake near Glendora?
+    guidance: Use mart_earthquakes ordered by mag; mart_earthquakes_annual for counts by year.
+    grounds: [mart_earthquakes, mart_earthquakes_annual]
+  - question: How has transit ridership changed?
+    guidance: Use mart_transit_monthly (boardings by ridership_month); these are system-wide totals for Foothill Transit and LA Metro, not Glendora riders.
+    grounds: [mart_transit_monthly]
+  - question: What share of restaurant inspections got an A grade?
+    guidance: Use mart_inspections_by_grade (inspection_count by grade); it counts inspections, not facilities.
+    grounds: [mart_inspections_by_grade]
+  - question: Which restaurants had the lowest inspection scores?
+    guidance: Use mart_inspections_facilities ordered by last_score.
+    grounds: [mart_inspections_facilities]
+  - question: What are the most common street tree species?
+    guidance: Use mart_trees_by_species (tree_count by common_name); mart_trees_summary for totals.
+    grounds: [mart_trees_by_species, mart_trees_summary]
+  - question: Which parks are the largest?
+    guidance: Use mart_parks ordered by acres.
+    grounds: [mart_parks]
+  - question: How has violent crime changed over the years?
+    guidance: Use mart_crime_annual (violent, property and offense columns by year).
+    grounds: [mart_crime_annual]
+  - question: What is Glendora's median household income?
+    guidance: Use mart_demographics (median_hh_income, population, median_age; ACS 5-year snapshot).
+    grounds: [mart_demographics]
+  - question: Which zoning codes cover the most areas?
+    guidance: Use mart_zoning_by_code (polygon_count by zoning); counts are polygons, not parcels or acres.
+    grounds: [mart_zoning_by_code]
+
+planner_notes:
+  - The weather station is at San Gabriel Dam in the foothills, not in town; weather avg_precip_in is the mean DAILY rainfall, not a monthly total.
+  - Transit tables are system-wide totals for Foothill Transit and LA Metro, not Glendora riders.
+  - Fire gis_acres is each fire's whole burned area, not the part inside Glendora; overlapping reburns double-count when summed.
+  - Groundwater covers the whole San Gabriel Valley basin, and annual medians come from a different set of wells each year.
+  - Zoning and fire-hazard counts are polygons, not parcels or acres.
+  - mart_air_worst_days holds only the top 15 days and mart_weather_records three record rows; do not total them.
+
+grounding:
+  threshold: 0.60
+  calibration: >-
+    fastembed BAAI/bge-small-en-v1.5 on the draft gold set (2026-10-05): generic
+    off-topic 0.505; answerable 0.682-0.860; subtle unanswerable (forecast, live
+    air, home prices, schools, another city, per-resident ridership) 0.625-0.699,
+    inside the answerable band. 0.60 screens only the generic band with ~0.08
+    margin below the lowest answerable; the planner refuses the subtle ones.
+    Recalibrate after Evan reviews the gold set.
+
+limits:
+  max_rows: 1000
+  max_result_bytes: 256000
+  statement_timeout_s: 15
+  max_question_chars: 500
+  max_per_session: 15
+  max_per_day: 200
+
+chat:
+  example_questions:
+    - Which wildfires burned the most acres?
+    - What is the wettest month of the year?
+    - How has transit ridership changed?
+    - What are the most common street tree species?

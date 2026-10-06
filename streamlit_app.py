@@ -20,6 +20,7 @@ apply_theme()
 
 pages = [
     st.Page("views/overview.py", title="Overview", icon=":material/landscape:", default=True),
+    st.Page("views/ask.py", title="Ask Tiresias", icon=":material/question_answer:"),
     st.Page("views/wildfire.py", title="Wildfire", icon=":material/local_fire_department:"),
     st.Page("views/weather.py", title="Weather", icon=":material/rainy:"),
     st.Page("views/river.py", title="River", icon=":material/water:"),
@@ -36,9 +37,9 @@ pages = [
 ]
 
 navigation = st.navigation({
-    "Field guide": pages[:1],
-    "Environment & foothills": pages[1:7],
-    "Life in the city": pages[7:],
+    "Field guide": pages[:2],
+    "Environment & foothills": pages[2:8],
+    "Life in the city": pages[8:],
 })
 sidebar_identity()
 navigation.run()

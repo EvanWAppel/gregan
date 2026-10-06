@@ -1,0 +1,99 @@
+# Tiresias gold set for Glendora: the honesty benchmark. DRAFT — Evan reviews the
+# questions and expectations (they were written from the docs, not the data).
+#
+# expect: "answer"  -> must not abstain; SQL must run; `must_reference` tables cited;
+#                      `sql_must_contain` fragments in the executed SQL.
+# expect: "abstain" -> must abstain (retrieval gate or planner decision).
+version: 1
+cases:
+  # --- answerable ---
+  - id: largest_fires
+    question: Which five wildfires burned the most acres?
+    expect: answer
+    must_reference: [mart_fire_perimeters]
+  - id: fires_by_decade
+    question: How many fires were recorded in each decade?
+    expect: answer
+    must_reference: [mart_fire_by_decade]
+  - id: fire_stations
+    question: How many fire stations are there?
+    expect: answer
+    must_reference: [mart_fire_stations]
+  - id: annual_rain
+    question: Which year had the most total precipitation?
+    expect: answer
+    must_reference: [mart_weather_annual]
+  - id: hottest_month
+    question: Which calendar month has the highest average daily high temperature?
+    expect: answer
+    must_reference: [mart_weather_monthly]
+  - id: river_flow
+    question: What was the highest monthly average river flow on record?
+    expect: answer
+    must_reference: [mart_river_monthly]
+  - id: groundwater_trend
+    question: How has the median groundwater elevation changed by year?
+    expect: answer
+    must_reference: [mart_gw_annual]
+  - id: air_category_days
+    question: How many days fell in each air-quality category?
+    expect: answer
+    must_reference: [mart_air_category_days]
+  - id: biggest_quake
+    question: What was the strongest earthquake recorded near Glendora?
+    expect: answer
+    must_reference: [mart_earthquakes]
+  - id: quakes_per_year
+    question: How many earthquakes were recorded each year?
+    expect: answer
+    must_reference: [mart_earthquakes_annual]
+  - id: transit_trend
+    question: How did monthly transit boardings change over time?
+    expect: answer
+    must_reference: [mart_transit_monthly]
+  - id: inspection_grades
+    question: How many inspections received each letter grade?
+    expect: answer
+    must_reference: [mart_inspections_by_grade]
+  - id: tree_species
+    question: What are the five most common street tree species?
+    expect: answer
+    must_reference: [mart_trees_by_species]
+  - id: largest_parks
+    question: What are the three largest parks by acreage?
+    expect: answer
+    must_reference: [mart_parks]
+  - id: violent_crime_trend
+    question: In which year was violent crime highest?
+    expect: answer
+    must_reference: [mart_crime_annual]
+  - id: median_income
+    question: What is the median household income?
+    expect: answer
+    must_reference: [mart_demographics]
+  - id: zoning_codes
+    question: Which zoning code has the most polygons?
+    expect: answer
+    must_reference: [mart_zoning_by_code]
+  # --- must abstain ---
+  - id: ood_bitcoin
+    question: What will bitcoin be worth next week?
+    expect: abstain
+  - id: ood_forecast
+    question: Will it rain in Glendora tomorrow?
+    expect: abstain
+  - id: ood_live_air
+    question: What is the air quality right now?
+    expect: abstain
+  - id: no_such_data_home_prices
+    question: What is the median home sale price this year?
+    expect: abstain
+  - id: no_such_data_schools
+    question: Which Glendora school has the best test scores?
+    expect: abstain
+  - id: other_city
+    question: How many restaurants in Pasadena failed inspection?
+    expect: abstain
+  - id: no_such_column_ridership_by_rider
+    question: How many transit trips did Glendora residents take last year?
+    expect: abstain

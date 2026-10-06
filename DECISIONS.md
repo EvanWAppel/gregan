@@ -108,3 +108,19 @@ The durable *why*. One entry per decision with a **real trade-off** — what was
   usable. **Trade-off:** a small presentation stylesheet depends on Streamlit's DOM
   attributes and should be visually checked when Streamlit is upgraded.
 - **Confirmed:** the user approved the redesign and requested deployment on 2026-09-26.
+
+## 2026-10-05 — Add the Ask Tiresias page (drafted by Claude, awaiting Evan's confirmation)
+
+Gregan adopts the Tiresias library (github.com/EvanWAppel/tiresias v0.1.0, pinned
+by the tag's commit archive) with its own `tiresias.yml`. Scope: **all 34 marts**
+(none is a sample, QA table, or build metadata); polygon `rings_json` and
+`mart_parks.dot_radius` are map-only (hidden from the agent and rejected by the
+guard). Planner notes carry the caveats that would otherwise produce wrong
+answers (station location, daily-mean precip, system-wide transit, whole-fire
+acres, basin-wide groundwater, polygon counts). Grounding threshold **0.60**, about midway between the generic off-topic
+score (0.505) and the lowest answerable question (0.682) (rejected: 0.63+, which
+would also refuse the subtle cases but sits within ~0.05 of a real question, so a
+paraphrase could be wrongly refused; the planner handles the subtle cases). All 181 missing column
+docs written from code; 17 unsure claims listed in `TIRESIAS.md` for review
+against the data. `requires-python` narrowed to 3.12 to match the library and the
+Docker image. Metric registry starts empty.
