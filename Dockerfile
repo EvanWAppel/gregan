@@ -23,6 +23,10 @@ RUN dbt deps && python build_warehouse.py && dbt build --profiles-dir .
 # the build above.
 RUN dbt docs generate --profiles-dir .
 
+# Fail the build if tiresias.yml drifted from the built marts (missing table,
+# renamed column, bad map-only column). Warnings don't fail it.
+RUN tiresias check
+
 # Railway injects $PORT at runtime; default to 8501 for local runs. JSON exec
 # form so Streamlit gets SIGTERM; sh -c so $PORT still expands.
 EXPOSE 8501
