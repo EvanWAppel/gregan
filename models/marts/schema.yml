@@ -11,236 +11,704 @@ version: 2
 #     regional (groundwater = whole San Gabriel Valley basin, air = includes the
 #     Pasadena PM2.5 monitor, fire perimeters = regional CAL FIRE polygons).
 #   The bands are sanity gates (catch swapped/garbage coords), not tight fences.
+#
+# Description conventions
+# -----------------------
+# Column descriptions are read by a text-to-SQL agent (Tiresias). Each states
+# units, grain, what a count counts, how an aggregate is computed, and caveats.
+# "Glendora bbox" = lat 34.09–34.20, lon -117.92 to -117.80 (city_config.GLENDORA_BBOX),
+# a rectangle around the city, not the legal city limits.
+# Map points (latitude/longitude on polygon marts) are the vertex average of the
+# polygon's outer ring, not a true centroid; rings_json is that outer ring.
 
 models:
   - name: mart_inspections_by_grade
-    description: Grade distribution (A/B/C) across Glendora inspection activities.
+    description: >-
+      Grade distribution (A/B/C) across Glendora inspection activities. One row per
+      letter grade; counts every graded inspection activity in the LA County
+      Environmental Health export (all dates in the file), so a facility inspected
+      several times is counted several times. Ungraded activities are excluded.
     columns:
       - name: grade
+        description: Inspection letter grade, 'A', 'B' or 'C' (primary key).
         data_tests:
           - not_null
           - unique
+      - name: inspection_count
+        description: >-
+          Number of inspection activities (rows, not distinct facilities) that received
+          this grade, across all inspection dates in the source file.
   - name: mart_inspections_facilities
-    description: One row per Glendora facility — its most recent inspection.
+    description: >-
+      One row per Glendora facility — its most recent inspection. Source is LA County
+      Environmental Health restaurant/market inspections filtered to FACILITY CITY =
+      'GLENDORA'; non-spatial (address/ZIP only, no coordinates).
     columns:
       - name: facility_id
         description: LA County facility id — the natural key (one row per facility here).
         data_tests:
           - not_null
           - unique
+      - name: facility_name
+        description: Facility (business) name as recorded by LA County Environmental Health.
+      - name: facility_address
+        description: Street address of the facility (text; city is always Glendora).
+      - name: facility_zip
+        description: Facility ZIP code as text, exactly as in the county export (Glendora ZIPs are 91740/91741).
+      - name: pe_description
+        description: >-
+          LA County program-element description from the most recent inspection row —
+          facility type, size band (seats or sq ft) and risk tier. Free text, not a
+          normalized category.
+      - name: last_inspection_date
+        description: Date (DATE) of the facility's most recent inspection activity.
+      - name: last_grade
+        description: >-
+          Letter grade ('A', 'B' or 'C') from the most recent inspection; NULL if that
+          inspection was ungraded.
+      - name: last_score
+        description: >-
+          Numeric inspection score (0–100, higher is better) from the most recent
+          inspection; NULL if missing. One score per facility, so averaging this column
+          gives the average latest score.
   - name: mart_fire_perimeters
-    description: Historic fire perimeters intersecting Glendora (map + table).
+    description: >-
+      Historic fire perimeters intersecting Glendora (map + table). One row per CAL
+      FIRE historic fire perimeter whose polygon intersects the Glendora bbox — many
+      fires lie mostly or entirely outside city limits. Perimeters with zero/NULL
+      acreage are excluded.
     columns:
       - name: objectid
+        description: CAL FIRE layer OBJECTID — primary key (one row per perimeter).
         data_tests:
           - not_null
           - unique
-      - name: latitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
+      - name: fire_name
+        description: Fire name as recorded by CAL FIRE (e.g. 'COLBY'); NULL when blank.
+      - name: year
+        description: Fire year (integer, CAL FIRE YEAR_ field).
+      - name: agency
+        description: Short code of the agency responsible for the fire, as recorded by CAL FIRE.
+      - name: gis_acres
+        description: >-
+          GIS-computed area of the whole fire perimeter in acres — not the portion
+          inside Glendora. Overlapping fires (reburns) double-count if summed.
+      - name: alarm_date
+        description: Date (DATE) the fire was reported/alarmed; NULL if not recorded.
+      - name: cont_date
+        description: Date (DATE) the fire was contained; NULL if not recorded.
+      - name: cause
+        description: >-
+          Fire cause label decoded from CAL FIRE's cause code (e.g. 'Lightning',
+          'Arson', 'Equipment Use', 'Unknown / Unidentified'); NULL if no code.
+      - name: is_colby
+        description: True for the 2014 Colby Fire (fire_name = 'COLBY'), the city's landmark fire; false otherwise.
       - name: longitude
+        description: Map label point — vertex-average of the perimeter's outer ring, decimal degrees WGS84 (approximate; may fall outside the polygon).
         data_tests:
           - dbt_utils.accepted_range: {min_value: -119.0, max_value: -117.0}
+      - name: latitude
+        description: Map label point — vertex-average of the perimeter's outer ring, decimal degrees WGS84 (approximate; may fall outside the polygon).
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
+      - name: rings_json
+        description: >-
+          Map geometry only — JSON array of [lon, lat] pairs for the perimeter's first
+          (outer) ring; holes and additional parts are dropped. Not for analysis.
   - name: mart_fire_by_decade
-    description: Fire count and GIS acres by decade.
+    description: >-
+      Fire count and GIS acres by decade, for CAL FIRE perimeters intersecting the
+      Glendora bbox. One row per decade that had at least one fire (no zero rows).
     columns:
       - name: decade
+        description: Start year of the decade (integer, e.g. 1950 = 1950–1959), from the fire year.
         data_tests:
           - not_null
           - unique
+      - name: fire_count
+        description: Number of fire perimeters with a fire year in this decade.
+      - name: gis_acres
+        description: >-
+          Sum of whole-perimeter GIS acres for those fires, rounded to whole acres.
+          Includes area outside Glendora and double-counts overlapping reburns.
   - name: mart_fire_stations
-    description: Glendora fire stations as map points.
+    description: Glendora fire stations as map points. One row per station (three LA County Fire stations from the city GIS layer).
     columns:
       - name: name
+        description: Station name as recorded in the city GIS layer (primary key).
         data_tests:
           - not_null
           - unique
-      - name: latitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: address
+        description: Street address of the station.
       - name: longitude
+        description: Station longitude, decimal degrees WGS84.
         data_tests:
           - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+      - name: latitude
+        description: Station latitude, decimal degrees WGS84.
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
   - name: mart_fire_hazard_zones
-    description: FHSZ polygons intersecting Glendora (SRA 2007 + LRA 2011).
+    description: >-
+      FHSZ polygons intersecting Glendora (SRA 2007 + LRA 2011). One row per CAL FIRE
+      Fire Hazard Severity Zone polygon from either layer; the key is (responsibility,
+      objectid). Old vintages — NOT the 2025 FHSZ update. Rows are polygons, not areas,
+      so counting rows does not measure land area.
     columns:
       - name: objectid
+        description: >-
+          OBJECTID within its source layer; NOT unique across layers — pair with
+          responsibility to identify a polygon.
         data_tests:
           - not_null
+      - name: responsibility
+        description: >-
+          Fire-protection responsibility area of the source layer: 'SRA' (State
+          Responsibility Area, 2007 map) or 'LRA' (Local Responsibility Area, 2011 map).
+      - name: haz_code
+        description: Numeric hazard severity code from CAL FIRE (higher = more severe); corresponds to haz_class.
+      - name: haz_class
+        description: Hazard severity class label from CAL FIRE (e.g. 'Moderate', 'High', 'Very High').
+      - name: longitude
+        description: Map label point — vertex-average of the polygon's outer ring, decimal degrees WGS84 (approximate).
+      - name: latitude
+        description: Map label point — vertex-average of the polygon's outer ring, decimal degrees WGS84 (approximate).
+      - name: rings_json
+        description: Map geometry only — JSON array of [lon, lat] pairs for the polygon's outer ring. Not for analysis.
 
   - name: mart_weather_annual
+    description: >-
+      Calendar-year weather summary from NOAA GHCN-Daily station USC00047779 (San
+      Gabriel Dam, in the foothills just north of the city — not an in-town gauge).
+      One row per calendar year in the station's full record; the first and latest
+      years may be partial (check days_observed).
     columns:
       - name: year
+        description: Calendar year (Jan–Dec, not water year).
         data_tests: [not_null, unique]
+      - name: total_precip_in
+        description: >-
+          Sum of daily precipitation for the year, inches. Days with no PRCP value add
+          nothing, so incomplete years understate the total.
       - name: days_observed
+        description: >-
+          Number of daily records (dates) in the station file for the year, regardless
+          of which elements (PRCP/TMAX/TMIN) were reported that day.
         data_tests: [not_null]
+      - name: rain_days
+        description: Number of days with precipitation strictly greater than 0.01 inches.
+      - name: avg_tmax_f
+        description: Mean of daily maximum temperatures over days with a TMAX value, °F.
+      - name: avg_tmin_f
+        description: Mean of daily minimum temperatures over days with a TMIN value, °F.
   - name: mart_weather_monthly
-    description: Daily-mean climatology by calendar month (12 rows).
+    description: >-
+      Daily-mean climatology by calendar month (12 rows), pooling every year of the San
+      Gabriel Dam (USC00047779) record. Values are averages of daily observations, not
+      monthly totals.
     columns:
       - name: month_num
+        description: Calendar month number, 1 = January … 12 = December (primary key).
         data_tests: [not_null, unique]
-  - name: mart_weather_records
-    description: Hottest / coldest / wettest day on record.
-    columns:
-      - name: record_type
-        data_tests: [not_null, unique]
-
-  - name: mart_river_daily
+      - name: month_name
+        description: Three-letter English month abbreviation ('Jan'…'Dec'), a display label; sort by month_num.
+      - name: avg_precip_in
+        description: >-
+          Average DAILY precipitation in inches for this month across all years — not
+          the monthly total (multiply by days in the month to approximate a monthly normal).
+      - name: avg_tmax_f
+        description: Mean daily maximum temperature for this calendar month across all years, °F.
+      - name: avg_tmin_f
+        description: Mean daily minimum temperature for this calendar month across all years, °F.
+  - name: mart_weather_recent
+    description: >-
+      Daily weather for the most recent two years of the San Gabriel Dam (USC00047779)
+      record — the window ends at the latest date in the station file, not today. One
+      row per day.
     columns:
       - name: obs_date
+        description: Observation date (DATE).
+      - name: tmax_f
+        description: Daily maximum temperature, °F (converted from GHCN tenths of °C); NULL if not reported.
+      - name: tmin_f
+        description: Daily minimum temperature, °F (converted from GHCN tenths of °C); NULL if not reported.
+      - name: precip_in
+        description: Daily precipitation, inches (converted from GHCN tenths of mm); NULL if not reported.
+  - name: mart_weather_records
+    description: >-
+      Hottest / coldest / wettest day on record at San Gabriel Dam (USC00047779).
+      Exactly three rows. Display-only: value is a formatted string, so use other
+      weather marts for numeric comparisons.
+    columns:
+      - name: record_type
+        description: "Which record: 'Hottest day' (max TMAX), 'Coldest day' (min TMIN) or 'Wettest day' (max daily precipitation)."
+        data_tests: [not_null, unique]
+      - name: obs_date
+        description: Date (DATE) the record occurred; if tied, one date is picked arbitrarily.
+      - name: value
+        description: >-
+          Display string of the record value with units — temperature rounded to whole
+          °F with suffix ' °F', precipitation rounded to 0.01 in with suffix ' in'. Text,
+          not numeric.
+
+  - name: mart_river_daily
+    description: >-
+      Daily values for USGS gage 11085000, San Gabriel River below Santa Fe Dam near
+      Baldwin Park — downstream of Glendora and dam-regulated. One row per day, from
+      1970-01-01 (or the start of the gage record) through the build date.
+    columns:
+      - name: obs_date
+        description: Observation date (DATE).
         data_tests: [not_null]
+      - name: discharge_cfs
+        description: >-
+          Daily mean discharge (USGS parameter 00060), cubic feet per second; NULL on
+          days with only a gage-height value. USGS -999999 sentinels are removed.
+      - name: gage_height_ft
+        description: >-
+          Daily mean gage height (USGS parameter 00065), feet above the gage datum (not
+          water depth); NULL on days not reported, and entirely NULL if USGS has no
+          daily gage-height series for the site.
   - name: mart_river_monthly
-    description: Monthly discharge summary for the San Gabriel River gage.
+    description: >-
+      Monthly discharge summary for the San Gabriel River gage (USGS 11085000). One row
+      per calendar month, aggregating the daily values.
     columns:
       - name: month
+        description: First instant of the calendar month (TIMESTAMP, midnight on the 1st).
         data_tests: [not_null, unique]
+      - name: avg_cfs
+        description: Mean of the month's daily-mean discharges, cubic feet per second.
+      - name: min_cfs
+        description: Lowest daily-mean discharge in the month, cubic feet per second.
+      - name: max_cfs
+        description: Highest daily-mean discharge in the month, cubic feet per second (not the instantaneous peak).
+      - name: avg_gage_ft
+        description: Mean of the month's daily gage heights, feet above gage datum; NULL if no gage readings that month.
 
   - name: mart_gw_stations
+    description: >-
+      CA DWR groundwater monitoring wells in Bulletin-118 basin 'San Gabriel Valley'
+      (4-013) — the whole basin, most wells outside Glendora. One row per well that has
+      coordinates.
     columns:
       - name: site_code
+        description: DWR well site code (primary key); joins to mart_gw_levels.site_code.
         data_tests: [not_null, unique]
+      - name: well_name
+        description: DWR well name / local identifier (text); may be NULL.
       - name: latitude
+        description: Well latitude, decimal degrees.
         data_tests:
           - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
       - name: longitude
+        description: Well longitude, decimal degrees.
         data_tests:
           - dbt_utils.accepted_range: {min_value: -119.0, max_value: -117.0}
+      - name: gse_ft
+        description: Ground surface elevation at the well, feet (DWR GSE); NULL if not recorded.
+      - name: well_depth_ft
+        description: Total depth of the well, feet below ground surface; often NULL.
+      - name: well_use
+        description: DWR well-use category (text, e.g. irrigation, observation, municipal); may be NULL or 'Unknown'.
+      - name: well_type
+        description: DWR well-type category (text); may be NULL.
+      - name: county_name
+        description: County the well is in, per DWR.
+      - name: basin_name
+        description: Bulletin-118 groundwater basin name; 'San Gabriel Valley' for every row (the fetch filter).
+      - name: basin_code
+        description: Bulletin-118 basin code as recorded on the station (expected '4-013').
   - name: mart_gw_annual
-    description: Basin-wide annual median groundwater elevation (shifting well panel).
+    description: >-
+      Basin-wide annual median groundwater elevation (shifting well panel). One row per
+      calendar year across all accepted measurements in DWR basin 4-013; which wells are
+      measured changes year to year, so trends mix well populations.
     columns:
       - name: year
+        description: Calendar year of the measurements.
         data_tests: [not_null, unique]
+      - name: median_gwe_ft
+        description: >-
+          Median groundwater surface elevation of all readings that year, feet (DWR GWE,
+          elevation above a vertical datum — higher = fuller aquifer).
+      - name: median_depth_ft
+        description: >-
+          Median depth to water of all readings that year, feet below ground surface
+          (DWR GSE minus GWE — larger = lower water table).
+      - name: reading_count
+        description: Number of accepted water-level measurements that year (readings flagged 'No measurement'/'Missing' excluded).
+      - name: station_count
+        description: Number of distinct wells with at least one accepted measurement that year.
   - name: mart_gw_levels
-    description: One row per well measurement, joined to the well name.
+    description: >-
+      One row per well measurement, joined to the well name. Periodic (not daily)
+      water-level readings from CA DWR for basin 4-013, excluding readings with no
+      elevation or QA 'No measurement'/'Missing'. Not guaranteed unique by
+      (site_code, msmt_date).
     columns:
       - name: site_code
+        description: DWR well site code; joins to mart_gw_stations.site_code.
         data_tests: [not_null]
+      - name: well_name
+        description: Well name from the DWR station list; NULL when the well is not in that list.
       - name: msmt_date
+        description: Measurement date (DATE).
         data_tests: [not_null]
+      - name: gwe_ft
+        description: Groundwater surface elevation, feet (DWR GWE; higher = more water in the aquifer).
+      - name: depth_to_water_ft
+        description: Depth to water below ground surface, feet (DWR GSE minus GWE); may be NULL.
 
   - name: mart_air_sites
-    description: One row per air monitor (Glendora ozone, Pasadena PM2.5).
+    description: >-
+      One row per air monitor (Glendora ozone, Pasadena PM2.5). Each site carries only
+      its assigned pollutant — site 0016 'Glendora' = Ozone, site 2005 'Pasadena' =
+      PM2.5 — over EPA AQS daily data from 2015 on.
     columns:
       - name: site_num
+        description: EPA AQS site number within LA County (text; '0016' = Glendora ozone, '2005' = Pasadena PM2.5).
         data_tests: [not_null, unique]
+      - name: site
+        description: EPA AQS local site name of the monitor.
+      - name: county
+        description: County name of the monitor (Los Angeles).
       - name: latitude
+        description: Monitor latitude, decimal degrees (average over its rows).
         data_tests:
           - dbt_utils.accepted_range: {min_value: 33.5, max_value: 34.6}
       - name: longitude
+        description: Monitor longitude, decimal degrees (average over its rows).
         data_tests:
           - dbt_utils.accepted_range: {min_value: -119.0, max_value: -117.0}
+      - name: avg_aqi
+        description: Mean daily AQI for the site's pollutant over all its days, rounded to a whole AQI value.
+      - name: max_aqi
+        description: Highest daily AQI recorded at the site for its pollutant.
+      - name: day_count
+        description: Number of days with a daily AQI value at this site.
   - name: mart_air_monthly
-    description: Monthly avg/max AQI per pollutant (grain = month + pollutant).
+    description: >-
+      Monthly avg/max AQI per pollutant (grain = month + pollutant). Ozone is the
+      in-city Glendora monitor; PM2.5 is the Pasadena monitor. EPA AQS daily data,
+      2015 onward.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [obs_month, pollutant]
+    columns:
+      - name: obs_month
+        description: First instant of the calendar month (TIMESTAMP, midnight on the 1st).
+      - name: pollutant
+        description: EPA AQS parameter name — 'Ozone' (Glendora site) or a name beginning 'PM2.5' (Pasadena site); filter PM2.5 with LIKE 'PM2.5%'.
+      - name: avg_aqi
+        description: Mean of the month's daily AQI values for this pollutant (AQI, unitless index).
+      - name: max_aqi
+        description: Highest daily AQI for this pollutant in the month.
+      - name: reading_count
+        description: Number of days in the month with a daily AQI value for this pollutant.
   - name: mart_air_category_days
-    description: Day counts by AQI category (one row per category).
+    description: >-
+      Day counts by AQI category (one row per category). Each calendar day from 2015
+      on is classified once, by the highest daily AQI across both pollutants (Glendora
+      ozone, Pasadena PM2.5); days with no data are not counted, and categories that
+      never occurred have no row.
     columns:
       - name: aqi_category
+        description: >-
+          EPA AQI category: 'Good' (0–50), 'Moderate' (51–100), 'Unhealthy for
+          Sensitive Groups' (101–150), 'Unhealthy' (151–200), 'Very Unhealthy'
+          (201–300), 'Hazardous' (>300).
         data_tests: [not_null, unique]
+      - name: day_count
+        description: Number of days whose worst AQI (max over both pollutants) fell in this category.
       - name: severity
+        description: Sort order of the category, 1 = Good … 6 = Hazardous; use to order categories.
         data_tests:
           - accepted_values: {values: [1, 2, 3, 4, 5, 6], quote: false}
   - name: mart_air_worst_days
-    description: The 15 worst AQI days (one row per day).
+    description: >-
+      The 15 worst AQI days (one row per day). A top-15 extract, not a full daily
+      table — do not count or average it to describe overall air quality.
     columns:
       - name: obs_date
+        description: Date (DATE) of the bad-air day.
         data_tests: [not_null, unique]
+      - name: max_aqi
+        description: That day's highest daily AQI across both monitored pollutants.
+      - name: aqi_category
+        description: EPA AQI category of max_aqi (same labels as mart_air_category_days).
+      - name: site
+        description: AQS site name of the monitor that recorded the max (Glendora for ozone, Pasadena for PM2.5).
+      - name: pollutant
+        description: Pollutant that drove the day's max AQI ('Ozone' or the PM2.5 parameter name).
 
   - name: mart_transit_monthly
+    description: >-
+      Systemwide monthly boardings for Foothill Transit and LA Metro combined, from the
+      FTA National Transit Database, January 2015 onward. Agency-wide totals — NOT
+      ridership within Glendora.
     columns:
       - name: ridership_month
+        description: First day of the month (DATE).
         data_tests: [not_null, unique]
+      - name: boardings
+        description: >-
+          Unlinked passenger trips (NTD UPT — every boarding counts, including transfers)
+          summed over both agencies, all modes and service types for the month.
   - name: mart_transit_by_mode
-    description: Total boardings by NTD mode (systemwide, both agencies).
+    description: >-
+      Total boardings by NTD mode (systemwide, both agencies), summed over every month
+      since January 2015. One row per mode.
     columns:
       - name: mode_label
+        description: Human label of the NTD mode (e.g. 'Bus', 'Light Rail', 'Heavy Rail', 'Commuter Bus', 'Demand Response'); raw code if unmapped.
         data_tests: [not_null, unique]
+      - name: boardings
+        description: Unlinked passenger trips (NTD UPT) for the mode, summed over both agencies and all months since 2015-01.
   - name: mart_transit_by_agency
-    description: Total boardings by agency (systemwide).
+    description: >-
+      Total boardings by agency (systemwide), summed over every month since January
+      2015. Two rows: Foothill Transit and LA Metro.
     columns:
       - name: agency_label
+        description: "Agency short name: 'Foothill Transit' or 'LA Metro'."
         data_tests: [not_null, unique]
+      - name: boardings
+        description: Unlinked passenger trips (NTD UPT) for the agency, all modes, summed over all months since 2015-01.
   - name: mart_transit_light_rail_monthly
-    description: LA Metro light-rail monthly boardings (systemwide).
+    description: >-
+      LA Metro light-rail monthly boardings (systemwide) — all Metro light-rail lines,
+      not just the A Line or Glendora's station. One row per month since January 2015.
     columns:
       - name: ridership_month
+        description: First day of the month (DATE).
         data_tests: [not_null, unique]
+      - name: boardings
+        description: Unlinked passenger trips (NTD UPT) on NTD mode 'LR' for the month, all light-rail lines systemwide.
 
   - name: mart_parks
+    description: >-
+      Glendora city parks from the city GIS Parks layer. One row per park polygon with
+      positive acreage (about 15).
     columns:
+      - name: name
+        description: Park name.
+      - name: park_type
+        description: Park type/category as recorded in the city GIS layer (text).
+      - name: address
+        description: Park street address; may be NULL.
       - name: acres
+        description: Park area in acres from the city GIS ACRES attribute (always > 0).
         data_tests: [not_null]
-      - name: latitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
       - name: longitude
+        description: Map point — vertex-average of the park polygon's outer ring, decimal degrees WGS84 (approximate).
         data_tests:
           - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+      - name: latitude
+        description: Map point — vertex-average of the park polygon's outer ring, decimal degrees WGS84 (approximate).
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: size_class
+        description: "Display bucket of acres: '< 1 ac', '1–10 ac', '10–50 ac' or '50+ ac'. Use acres for numeric filtering."
+      - name: dot_radius
+        description: Map-only marker radius (sqrt(acres) * 40 + 60, map meters); not a measurement.
 
   - name: mart_trees_summary
+    description: >-
+      Single-row summary of the Glendora street-tree inventory (city GIS), counting
+      living/plantable trees only — vacant sites, stumps, 'unknown' entries and points
+      without coordinates are excluded. Street/public trees, not total canopy.
     columns:
       - name: total_trees
+        description: Number of inventoried street trees (after excluding vacant sites, stumps and unknowns).
         data_tests: [not_null]
+      - name: species_count
+        description: Number of distinct common names among those trees (proxy for species; spelling variants count separately).
+      - name: genus_count
+        description: Number of distinct genera (first word of the botanical name).
   - name: mart_trees_by_genus
-    description: Tree count by genus.
+    description: Tree count by genus. One row per genus across the living street-tree inventory; trees without a parsable genus are excluded.
     columns:
       - name: genus
+        description: Genus, the capitalized first word of the botanical name (hybrid 'x' prefix skipped), e.g. 'Quercus'.
         data_tests: [not_null, unique]
+      - name: tree_count
+        description: Number of street trees in the genus.
   - name: mart_trees_by_species
-    description: Tree count by common name.
+    description: Tree count by common name. One row per distinct common_name in the living street-tree inventory; trees with no common name are excluded.
     columns:
       - name: common_name
+        description: Common name as recorded in the city inventory (raw text, not normalized).
         data_tests: [not_null, unique]
+      - name: botanical
+        description: A botanical (scientific) name recorded for this common name — the alphabetically greatest if several differ.
+      - name: tree_count
+        description: Number of street trees with this common name.
   - name: mart_trees_map
-    description: Living/plantable street trees as map points (bbox-filtered).
+    description: >-
+      Living/plantable street trees as map points (bbox-filtered). One row per tree
+      inside the Glendora bbox; trees outside the box are dropped, so counts can be
+      lower than mart_trees_summary. Use mart_trees_summary for totals.
     columns:
-      - name: latitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: common_name
+        description: Tree common name from the city inventory; may be NULL.
+      - name: genus
+        description: Genus from the botanical name; may be NULL.
       - name: longitude
+        description: Tree longitude, decimal degrees WGS84.
         data_tests:
           - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+      - name: latitude
+        description: Tree latitude, decimal degrees WGS84.
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
 
   - name: mart_zoning
-    description: Glendora zoning polygons (centroids for the map).
-    columns:
-      - name: latitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
-      - name: longitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
-  - name: mart_zoning_by_code
-    description: Polygon count by zoning code.
+    description: >-
+      Glendora zoning polygons (centroids for the map). One row per zoning polygon from
+      the city Zoning_Glendora layer (blank codes dropped); polygons are not parcels and
+      carry no area, so row counts do not measure land area.
     columns:
       - name: zoning
-        data_tests: [not_null, unique]
-
-  - name: mart_earthquakes
-    columns:
-      - name: event_id
-        data_tests: [not_null, unique]
-      - name: latitude
-        data_tests:
-          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+        description: Zoning district code as recorded by the city; never blank.
+      - name: zoning_name
+        description: Descriptive name of the zoning district; NULL if blank in the source.
+      - name: overlay
+        description: Overlay zone designation; NULL when the polygon has no overlay.
       - name: longitude
+        description: Map label point — vertex-average of the polygon's outer ring, decimal degrees WGS84 (approximate).
         data_tests:
           - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+      - name: latitude
+        description: Map label point — vertex-average of the polygon's outer ring, decimal degrees WGS84 (approximate).
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: rings_json
+        description: Map geometry only — JSON array of [lon, lat] pairs for the polygon's outer ring. Not for analysis.
+  - name: mart_zoning_by_code
+    description: Polygon count by zoning code. Counts map polygons, not parcels or acres.
+    columns:
+      - name: zoning
+        description: Zoning district code (primary key).
+        data_tests: [not_null, unique]
+      - name: zoning_name
+        description: Descriptive name of the zoning district (the alphabetically greatest if polygons disagree).
+      - name: polygon_count
+        description: Number of zoning polygons carrying this code.
+
+  - name: mart_earthquakes
+    description: >-
+      USGS ComCat earthquakes (event type 'earthquake' only, so quarry blasts are
+      excluded) with epicenters in the Glendora bbox, since 2000-01-01. One row per
+      event; events without a magnitude are dropped.
+    columns:
+      - name: event_id
+        description: USGS event id (primary key).
+        data_tests: [not_null, unique]
+      - name: event_time_ms
+        description: Origin time as Unix epoch milliseconds (UTC).
+      - name: origin_time
+        description: Origin time as TIMESTAMP in UTC (no time zone attached; Pacific local time is 7–8 hours earlier).
+      - name: place
+        description: USGS human-readable location text relative to a nearby town (e.g. 'N km WNW of Glendora, CA').
+      - name: mag
+        description: Event magnitude as reported by USGS (magnitude type varies by event); never NULL here.
+      - name: longitude
+        description: Epicenter longitude, decimal degrees.
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: -118.0, max_value: -117.7}
+      - name: latitude
+        description: Epicenter latitude, decimal degrees.
+        data_tests:
+          - dbt_utils.accepted_range: {min_value: 34.0, max_value: 34.3}
+      - name: depth_km
+        description: Hypocenter depth in kilometers, as reported by USGS.
   - name: mart_earthquakes_annual
-    description: Earthquake count and magnitude summary by year.
+    description: >-
+      Earthquake count and magnitude summary by year for the Glendora bbox (since
+      2000). Only years with at least one event appear — a missing year means zero events.
     columns:
       - name: year
+        description: Calendar year of the origin time, in UTC.
         data_tests: [not_null, unique]
+      - name: event_count
+        description: Number of earthquakes in the year.
+      - name: max_mag
+        description: Largest magnitude in the year.
+      - name: avg_mag
+        description: Arithmetic mean magnitude of the year's events (magnitude is logarithmic; interpret loosely).
 
   - name: mart_crime_annual
+    description: >-
+      Glendora Police Department annual reported crime counts from the CA DOJ
+      OpenJustice Crimes & Clearances file (NCICCode = 'Glendora'), 2000 onward. One row
+      per year; agency-level totals only — no incidents, locations or per-capita rates.
     columns:
       - name: year
+        description: Calendar year of the counts (integer).
         data_tests: [not_null, unique]
+      - name: violent
+        description: Total violent crimes reported (CA DOJ Violent_sum — homicide, rape, robbery and aggravated assault).
+      - name: property
+        description: Total property crimes reported (CA DOJ Property_sum — burglary, motor vehicle theft and larceny-theft).
+      - name: homicide
+        description: Criminal homicides reported (CA DOJ Homicide_sum).
+      - name: rape
+        description: Rapes reported (CA DOJ ForRape_sum); the rape definition was broadened in the mid-2010s, so counts are not strictly comparable across that change.
+      - name: robbery
+        description: Robberies reported (CA DOJ Robbery_sum).
+      - name: aggravated_assault
+        description: Aggravated assaults reported (CA DOJ AggAssault_sum).
+      - name: burglary
+        description: Burglaries reported (CA DOJ Burglary_sum).
+      - name: vehicle_theft
+        description: Motor vehicle thefts reported (CA DOJ VehicleTheft_sum).
+      - name: larceny
+        description: Larceny-thefts reported, all values (CA DOJ LTtotal_sum).
   - name: mart_demographics
+    description: >-
+      Census ACS 5-year estimates (2020–2024, ACS_YEAR = 2024) for Glendora city (Census
+      place 0630014). Exactly one row; survey estimates without margins of error. A
+      value is NULL where Census returned an annotation/suppression code.
     columns:
       - name: geoid
+        description: Census place GEOID, state + place FIPS ('0630014').
         data_tests: [not_null, unique]
+      - name: name
+        description: Census place name for Glendora city, California.
       - name: population
+        description: Total population (ACS B01003_001E).
         data_tests: [not_null]
+      - name: median_age
+        description: Median age of the population, years (B01002_001E).
+      - name: median_hh_income
+        description: Median household income, US dollars inflation-adjusted to the ACS vintage year (B19013_001E).
+      - name: median_home_value
+        description: Median value of owner-occupied housing units, US dollars (B25077_001E).
+      - name: households
+        description: Total households (B11001_001E).
+      - name: occupied_housing
+        description: Occupied housing units, the denominator for tenure shares (B25003_001E).
+      - name: owner_occupied
+        description: Owner-occupied housing units (B25003_002E).
+      - name: renter_occupied
+        description: Renter-occupied housing units (B25003_003E).
+      - name: renter_pct
+        description: Percent of occupied housing units that are renter-occupied, 0–100, rounded to 1 decimal.
+      - name: owner_pct
+        description: Percent of occupied housing units that are owner-occupied, 0–100, rounded to 1 decimal.
+      - name: edu_pop_25plus
+        description: Population aged 25 and over, the denominator for educational attainment (B15003_001E).
+      - name: bachelors
+        description: People 25+ whose highest degree is a bachelor's (B15003_022E).
+      - name: masters
+        description: People 25+ whose highest degree is a master's (B15003_023E).
+      - name: professional
+        description: People 25+ whose highest degree is a professional school degree (B15003_024E).
+      - name: doctorate
+        description: People 25+ whose highest degree is a doctorate (B15003_025E).
+      - name: bachelors_plus
+        description: People 25+ with a bachelor's degree or higher (bachelors + masters + professional + doctorate).
+      - name: bachelors_plus_pct
+        description: bachelors_plus as a percent of edu_pop_25plus, 0–100, rounded to 1 decimal.
