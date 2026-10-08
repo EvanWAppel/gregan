@@ -1,0 +1,5 @@
+# Governed metric registry for Tiresias. Empty for now: no gregan mart yet carries
+# a canonical ratio worth governing. Add metrics here (see the Tiresias README)
+# as they are defined in the dbt models.
+version: 1
+metrics: []

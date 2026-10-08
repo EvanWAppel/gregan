@@ -1,0 +1,36 @@
+# Retrieval-quality gold set: for each query, one of `expect_any` must be among
+# the top-k grounding targets (recall@k, no LLM).
+version: 1
+k: 3
+min_recall: 0.85
+cases:
+  - query: Which wildfires burned the most acres?
+    expect_any: [mart_fire_perimeters, mart_fire_by_decade]
+  - query: fire hazard severity zones
+    expect_any: [mart_fire_hazard_zones]
+  - query: yearly rainfall totals
+    expect_any: [mart_weather_annual]
+  - query: hottest month of the year
+    expect_any: [mart_weather_monthly]
+  - query: San Gabriel River discharge
+    expect_any: [mart_river_monthly, mart_river_daily]
+  - query: groundwater depth over time
+    expect_any: [mart_gw_annual, mart_gw_levels]
+  - query: unhealthy air quality days
+    expect_any: [mart_air_category_days, mart_air_monthly, mart_air_worst_days]
+  - query: earthquake magnitudes
+    expect_any: [mart_earthquakes, mart_earthquakes_annual]
+  - query: bus and light rail ridership
+    expect_any: [mart_transit_monthly, mart_transit_by_mode, mart_transit_light_rail_monthly]
+  - query: restaurant inspection grades
+    expect_any: [mart_inspections_by_grade, mart_inspections_facilities]
+  - query: most common tree species
+    expect_any: [mart_trees_by_species, mart_trees_by_genus]
+  - query: largest parks
+    expect_any: [mart_parks]
+  - query: violent crime by year
+    expect_any: [mart_crime_annual]
+  - query: median household income and population
+    expect_any: [mart_demographics]
+  - query: zoning designations
+    expect_any: [mart_zoning_by_code, mart_zoning]
