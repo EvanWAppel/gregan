@@ -124,3 +124,29 @@ paraphrase could be wrongly refused; the planner handles the subtle cases). All 
 docs written from code; 17 unsure claims listed in `TIRESIAS.md` for review
 against the data. `requires-python` narrowed to 3.12 to match the library and the
 Docker image. Metric registry starts empty.
+
+## D11 — Ask Tiresias runs on a dedicated, spend-capped Anthropic workspace key
+
+- **Chose:** a separate `gregan` workspace in the Anthropic Console with a $10/month spend
+  cap and a $9 email alert; a key minted inside it is set as `ANTHROPIC_API_KEY` on Railway
+  for the public Ask Tiresias page. `project.toml` records `isolated = "yes"`,
+  `spend_cap = "yes"`.
+- **Rejected:** Evan's personal/default key, or any key without a server-side ceiling.
+- **Why:** the page is public and unauthenticated, so anyone can spend against the key.
+  An isolated workspace with a hard monthly cap bounds the worst case at $10, which
+  satisfies the global personal-key guardrail. This revises D8 (Census was the only
+  secret); the Anthropic key is the one billed secret, and it is runtime-only.
+- **Confirmed:** Evan, blocker triage 2026-10-23 (Console screenshot; key confirmed not
+  his personal/default key).
+
+## D12 — Pin tiresias v0.1.1 for the CTE-scope allowlist fix
+
+- **Chose:** bump the tiresias pin from v0.1.0 (`bbb34d6`) to v0.1.1 (`0ae9123`) in
+  `pyproject.toml`, `uv.lock` and `requirements.txt`, with `tests/test_tiresias_pin.py`
+  asserting all three carry the same commit archive.
+- **Rejected:** staying on v0.1.0, or tracking a branch instead of a tagged commit.
+- **Why:** v0.1.1 fixes a HIGH-severity bypass where a CTE name could shadow the table
+  allowlist, and opens the warehouse in a locked-down DuckDB connection. The page is
+  public, so the guard has to hold. A pinned tag commit keeps deploys reproducible, and
+  the test stops the Docker pin drifting from the uv pin.
+- **Confirmed:** Evan, blocker triage 2026-10-23.

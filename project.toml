@@ -32,8 +32,8 @@ path = "/"
 
 [keys]
 paid = ["anthropic"]        # Ask Tiresias page (via the tiresias library); CENSUS_API_KEY is a free rate-limit token
-isolated = "unknown"        # open in BLOCKED.md: dedicated, spend-capped key not yet set
-spend_cap = "unknown"
+isolated = "yes"            # dedicated `gregan` Anthropic workspace + scoped key on Railway, not personal/default (Evan, blocker triage 2026-10-23)
+spend_cap = "yes"           # $10/month workspace cap, $9 email alert (Evan, blocker triage 2026-10-23)
 
 [platform]
 done = []
