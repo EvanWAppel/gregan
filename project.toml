@@ -1,0 +1,39 @@
+# Drafted by gregan's weekend-prep session on 2026-10-22 (PLAT-REG-01 draft; verified = false).
+# Format: ~/Documents/_system/docs/project-toml.md
+
+[project]
+name = "gregan"
+group = "portfolio/geographic"
+kind = "app"
+status = "active"
+repo = "EvanWAppel/gregan"
+visibility = "public"
+on_site = true              # card in enki data/projects.ts (id "gregan", featured)
+verified = false
+
+[deploy]
+host = "railway"
+services = ["gregan"]       # origin gregan-production.up.railway.app; Railway project/service name not checked in the dashboard
+domain = "gregan.evanappel.me"   # serves HTTP 200 (curl, 2026-10-22)
+origin_urls_closed = false  # gregan-production.up.railway.app still serves (HTTP 200, 2026-10-22)
+
+[auth]
+scheme = "none"
+access_list = ""
+target = "unknown"          # sibling groening is the planned Cloudflare Access pilot; gregan's target not decided
+
+[data]
+db = "duckdb"               # glendora.duckdb baked at Docker build time
+
+[demo]
+status = "live"             # whole app is public
+url = "https://gregan.evanappel.me/"
+path = "/"
+
+[keys]
+paid = ["anthropic"]        # Ask Tiresias page (via the tiresias library); CENSUS_API_KEY is a free rate-limit token
+isolated = "unknown"        # open in BLOCKED.md: dedicated, spend-capped key not yet set
+spend_cap = "unknown"
+
+[platform]
+done = []
