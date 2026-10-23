@@ -38,9 +38,23 @@ def test_every_built_mart_is_classified(built):
     assert marts == built.tables.allowed | built.tables.excluded
 
 
-def test_ask_page_without_a_key_shows_a_notice(monkeypatch):
+@pytest.fixture(scope="module")
+def ask_page_imports():
+    """Import what ``views/ask.py`` imports before AppTest starts its clock.
+
+    A cold ``import tiresias.chat`` (no bytecode yet, e.g. a fresh checkout or CI)
+    takes longer than AppTest's script timeout. AppTest runs the page in this
+    process, so warming ``sys.modules`` here keeps the timeout measuring the page
+    itself, not the interpreter compiling the library.
+    """
+    import tiresias.chat  # noqa: F401
     from streamlit.testing.v1 import AppTest
 
+    return AppTest
+
+
+def test_ask_page_without_a_key_shows_a_notice(monkeypatch, ask_page_imports):
+    AppTest = ask_page_imports
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     at = AppTest.from_file(str(ROOT / "views" / "ask.py"), default_timeout=30).run()
     assert not at.exception
