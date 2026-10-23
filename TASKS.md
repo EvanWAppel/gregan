@@ -156,10 +156,12 @@ short-term rentals, public art, fire/911 incident-level, reservoir levels.
   `__pycache__/`, `.DS_Store`.
 - [x] **DEPLOY-02** — `prek` pre-commit (`ruff` + `ty` on commit, `pytest` on push).
 - [x] **DEPLOY-03** — GitHub Actions CI (ruff + ty + pytest + `dbt parse`; no warehouse).
-- [x] **DEPLOY-04** — Live: https://gregan-production.up.railway.app
+- [x] **DEPLOY-04** — Live: https://gregan.evanappel.me (Railway origin https://gregan-production.up.railway.app)
 - [x] **DEPLOY-05** — README has live URL, three-pattern ingest table, dropped topics, local run + gates.
-- [ ] **DEPLOY-06** *(optional)* — Register in the portfolio `projects.toml` with the
-  Railway URL. Custom domain `gregan.evanappel.me` deferred. Branch protection is on.
+- [x] **DEPLOY-06** *(optional)* — Registered in the portfolio: gregan has a card in
+  enki's `data/projects.ts` (id `gregan`; its `live` link still points at the Railway
+  origin, which also serves). Custom domain `gregan.evanappel.me` is live (HTTP 200,
+  checked with curl 2026-10-22). Branch protection is on.
 
 ## Suggested sequencing
 

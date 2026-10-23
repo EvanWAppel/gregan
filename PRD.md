@@ -2,8 +2,10 @@
 
 > A Glendora, CA open-data explorer built on the Elvis → robbins → groening engine.
 > Read [`PRIMER.md`](./PRIMER.md) and [`SOURCING.md`](./SOURCING.md) first.
-> Status: **Shipped — live on Railway** (plan authored 2026-08-24). All KEEP/REFRAME
-> pages are built and deployed: https://gregan-production.up.railway.app
+> Status: **Shipped — live on Railway** (plan authored 2026-08-24; status checked 2026-10-22).
+> All KEEP/REFRAME pages are built and deployed: https://gregan.evanappel.me
+> (Railway origin https://gregan-production.up.railway.app). The Ask Tiresias page is
+> merged but shows a "needs a key" notice until a dedicated key exists (BLOCKED.md).
 > House rules: [`CLAUDE.md`](./CLAUDE.md).
 
 ## 1. Summary
@@ -83,9 +85,10 @@ the build timestamp for a freshness banner.
 
 Railway from the `Dockerfile`; the build stage runs `build_warehouse.py && dbt build`
 to bake `glendora.duckdb`; runtime serves Streamlit on `$PORT`. **Live** at
-https://gregan-production.up.railway.app, registered in the portfolio `projects.toml`;
-branch protection is applied per the global guardrail. A custom `gregan.evanappel.me`
-subdomain is deferred.
+https://gregan.evanappel.me (custom domain; Railway origin
+https://gregan-production.up.railway.app). Listed as a project card in the portfolio
+site (enki `data/projects.ts`, id `gregan`). Branch protection is applied per the
+global guardrail.
 
 ## 9. Secrets & guardrails
 

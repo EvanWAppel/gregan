@@ -1,14 +1,15 @@
 # Gregan — Glendora, CA Open-Data Explorer
 
 [![CI](https://github.com/EvanWAppel/gregan/actions/workflows/ci.yml/badge.svg)](https://github.com/EvanWAppel/gregan/actions/workflows/ci.yml)
-[![Live demo](https://img.shields.io/badge/live-Railway-brightgreen)](https://gregan-production.up.railway.app)
+[![Live demo](https://img.shields.io/badge/live-gregan.evanappel.me-brightgreen)](https://gregan.evanappel.me)
 
 A San Gabriel foothills open-data explorer (Streamlit + DuckDB + dbt), porting the
 robbins/Elvis engine to **Glendora, California**. Public Glendora / LA County / state /
 federal data is fetched into DuckDB, modeled with dbt, and served as maps, charts,
 and searchable tables.
 
-**Live:** https://gregan-production.up.railway.app
+**Live:** https://gregan.evanappel.me (custom domain; Railway origin
+https://gregan-production.up.railway.app)
 
 ## Three ingest patterns
 

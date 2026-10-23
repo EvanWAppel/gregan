@@ -1,5 +1,77 @@
 # Gregan — Handoff Primer
 
+## Next session — 2026-10-24 weekend
+
+**Goal (2 lines):** Gregan is a public Streamlit explorer of free Glendora, CA open data
+(city ArcGIS + county/state/federal feeds narrowed to Glendora) over a DuckDB + dbt warehouse baked at Docker build time.
+
+**Current state (2026-10-22, `main` @ `cab40b9`):** shipped and live on Railway
+(https://gregan.evanappel.me, origin https://gregan-production.up.railway.app, both HTTP 200).
+All TASKS.md groups are `[x]` except optional DEPLOY-06. The Ask Tiresias page (PR #10) is merged
+but shows a "needs a key" notice until Evan provides a dedicated key (BLOCKED.md). No open PRs.
+Evan's local checkout is on branch `tiresias` with one unmerged WIP commit (`929025f`: AGENTS.md +
+a CLAUDE.md ROCRLL wording tweak). Leave it alone; it is his call (BLOCKED.md).
+
+**Baseline tests on `main`:** `uv run pytest -q` → 55 passed, 18 skipped, **1 failed**
+(`tests/test_tiresias_config.py::test_ask_page_without_a_key_shows_a_notice`: AppTest timed out
+at 30s on a cold import of `tiresias.chat`, about 46s cold; it passes once bytecode is warm).
+The 18 skips need a built warehouse / dbt artifacts. `ruff check .` and `ty check` are clean.
+
+### Autonomous tasks, in order (each its own branch off `main` + PR; do not merge)
+
+1. **FIX-01: de-flake the Ask-page notice test.** Make the cold `tiresias.chat` import not count
+   against AppTest's 30s timeout, e.g. a module-scoped fixture that imports `tiresias.chat` first,
+   or a larger `default_timeout` with a comment explaining why. Don't change `views/ask.py` behavior.
+   *Done:* in a fresh worktree (`find . -name __pycache__ -prune -exec rm -rf {} +` first),
+   `uv run pytest -q tests/test_tiresias_config.py` passes on the first cold run.
+2. **TEST-01: unit-test the untested pure URL/env helpers in `build_warehouse.py`.** These are
+   `load_env_file` (use a tmp file and `monkeypatch`, never a real `.env`), `socrata_csv_url`,
+   `socrata_resource_csv_url`, `arcgis_item_data_url`. Write the tests first. If one exposes a
+   real bug, stop, record it, and ask before changing behavior.
+   *Done:* new tests are green; `uv run pytest -q`, `uv run ruff check .`, `uv run ty check` pass.
+3. **TEST-02: stubbed-network tests for `fetch_usgs_dv`, `fetch_aqs_year`, `fetch_acs_place`.**
+   Monkeypatch the HTTP layer the way `tests/test_fetch_ckan.py` / `test_federal.py` do. Cover
+   the happy path and the empty-result/raise path (CLAUDE.md: zero rows must raise). For ACS,
+   assert the key is read from the env var name only (fake value in the test).
+   *Done:* same gates as TEST-01. Use shared fixtures in `tests/conftest.py`.
+4. **TEST-03: `main()` drop-logging test.** Assert `main()` emits one `DROP:` log line for each
+   dropped topic (permits, business licenses, STR, public art, fire/911 incidents, reservoir
+   levels) without fetching anything. Monkeypatch `bw.load_env_file` to a no-op (`main()` calls it,
+   and it would load the real `.env`), `bw.DB_PATH` to `tmp_path`, and `bw.BUILDERS` to stubs; assert
+   against `bw.DROPPED_TOPICS`. *Done:* test green, no network.
+5. **DOCS-01: reconcile docs with what's live.** `gregan.evanappel.me` already serves the app
+   (checked with curl on 2026-10-22), and gregan already has a card in enki's `data/projects.ts`.
+   Update TASKS.md DEPLOY-06 (enki card exists; custom domain live), README live-URL line, and the
+   PRD status line. Docs only, no code. *Done:* `git diff` touches only `*.md`.
+
+Test command for everything: `uv run pytest -q && uv run ruff check . && uv run ty check`
+(CI also runs `uv run dbt deps && uv run dbt parse --profiles-dir . --no-partial-parse`).
+
+### House rules that matter (CLAUDE.md)
+- `uv` only (`uv run python`, `uv add` / `uv add --dev`; never hand-edit pyproject deps).
+- TDD with pytest: failing test first; DRY with fixtures in `tests/conftest.py`.
+- ruff + ty clean; `logging`, never hide or wrap errors; never push to `main`.
+- **Prime directive: if anything is unclear, stop and ask.** The agent never inspects raw data.
+- Don't redesign the architecture (D1). A fetch that returns zero rows raises.
+
+### Do NOT
+- Deploy, merge, or push to `main`. Any merge to `main` redeploys Railway.
+- Read `.env` (never) or create/use an Anthropic key. Ask Tiresias's key is Evan's 🔴 blocker,
+  and the live gold eval (`tiresias eval` without `--retrieval-only`) needs that key.
+- Run `build_warehouse.py` / `dbt build`. They fetch live sources, need `CENSUS_API_KEY` from
+  `.env`, and put raw data in front of the agent. So the 18 warehouse-guarded tests,
+  `tiresias check`, `tiresias calibrate` and `tiresias eval --retrieval-only` are out of scope this weekend.
+- Edit `evals/tiresias_gold.yaml` verdicts or the TIRESIAS.md column-doc claims. Those need Evan to check them against the data (🟡 blocker).
+- Wire new sources (e.g. TOPIC-weather's optional in-town precip). Sources must be verified first,
+  and choosing one is a design call.
+- Touch Evan's `tiresias` branch / local checkout, or open a PR from it.
+- Use a browser for verification (curl, logs and tests only).
+- There are no git-crypt paths in this repo.
+
+---
+
+## Original handoff (2026-08-24, historical)
+
 > **Purpose:** Everything a fresh repo (and a fresh Claude session) needs to build a
 > **Glendora, California** open-data explorer — a port of **Elvis** (Las Vegas) via
 > the **robbins** (Seattle) / **groening** (Portland) engine.
