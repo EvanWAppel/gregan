@@ -5,44 +5,26 @@
 **Goal (2 lines):** Gregan is a public Streamlit explorer of free Glendora, CA open data
 (city ArcGIS + county/state/federal feeds narrowed to Glendora) over a DuckDB + dbt warehouse baked at Docker build time.
 
-**Current state (2026-10-22, `main` @ `cab40b9`):** shipped and live on Railway
-(https://gregan.evanappel.me, origin https://gregan-production.up.railway.app, both HTTP 200).
-All TASKS.md groups are `[x]` except optional DEPLOY-06. The Ask Tiresias page (PR #10) is merged
-but shows a "needs a key" notice until Evan provides a dedicated key (BLOCKED.md). No open PRs.
-Evan's local checkout is on branch `tiresias` with one unmerged WIP commit (`929025f`: AGENTS.md +
-a CLAUDE.md ROCRLL wording tweak). Leave it alone; it is his call (BLOCKED.md).
+**Current state (2026-10-23, `main` @ `1ca60b9`):** shipped and live on Railway
+(https://gregan.evanappel.me, origin https://gregan-production.up.railway.app; both HTTP 200 when
+checked 2026-10-22). All TASKS.md groups are `[x]`, including DEPLOY-06 (closed by DOCS-01 in PR #12).
+The Ask Tiresias page (PR #10) is merged. PR #14 pinned tiresias v0.1.1 and cleared the
+Anthropic-key blocker: Evan made a dedicated `gregan` workspace with a capped key and set it on
+Railway (DECISIONS.md D11, D12). No open PRs. Evan's `tiresias` branch still carries one unmerged
+WIP commit (`929025f`: AGENTS.md + a CLAUDE.md ROCRLL wording tweak). Leave it alone; it is his
+call (BLOCKED.md).
 
-**Baseline tests on `main`:** `uv run pytest -q` → 55 passed, 18 skipped, **1 failed**
-(`tests/test_tiresias_config.py::test_ask_page_without_a_key_shows_a_notice`: AppTest timed out
-at 30s on a cold import of `tiresias.chat`, about 46s cold; it passes once bytecode is warm).
-The 18 skips need a built warehouse / dbt artifacts. `ruff check .` and `ty check` are clean.
+**Baseline tests on `main`:** `uv run pytest -q` → **87 passed, 18 skipped** (measured 2026-10-23
+on `1ca60b9`). The 18 skips need a built warehouse / dbt artifacts. `ruff check .` and `ty check`
+are clean.
 
-### Autonomous tasks, in order (each its own branch off `main` + PR; do not merge)
+### Autonomous tasks
 
-1. **FIX-01: de-flake the Ask-page notice test.** Make the cold `tiresias.chat` import not count
-   against AppTest's 30s timeout, e.g. a module-scoped fixture that imports `tiresias.chat` first,
-   or a larger `default_timeout` with a comment explaining why. Don't change `views/ask.py` behavior.
-   *Done:* in a fresh worktree (`find . -name __pycache__ -prune -exec rm -rf {} +` first),
-   `uv run pytest -q tests/test_tiresias_config.py` passes on the first cold run.
-2. **TEST-01: unit-test the untested pure URL/env helpers in `build_warehouse.py`.** These are
-   `load_env_file` (use a tmp file and `monkeypatch`, never a real `.env`), `socrata_csv_url`,
-   `socrata_resource_csv_url`, `arcgis_item_data_url`. Write the tests first. If one exposes a
-   real bug, stop, record it, and ask before changing behavior.
-   *Done:* new tests are green; `uv run pytest -q`, `uv run ruff check .`, `uv run ty check` pass.
-3. **TEST-02: stubbed-network tests for `fetch_usgs_dv`, `fetch_aqs_year`, `fetch_acs_place`.**
-   Monkeypatch the HTTP layer the way `tests/test_fetch_ckan.py` / `test_federal.py` do. Cover
-   the happy path and the empty-result/raise path (CLAUDE.md: zero rows must raise). For ACS,
-   assert the key is read from the env var name only (fake value in the test).
-   *Done:* same gates as TEST-01. Use shared fixtures in `tests/conftest.py`.
-4. **TEST-03: `main()` drop-logging test.** Assert `main()` emits one `DROP:` log line for each
-   dropped topic (permits, business licenses, STR, public art, fire/911 incidents, reservoir
-   levels) without fetching anything. Monkeypatch `bw.load_env_file` to a no-op (`main()` calls it,
-   and it would load the real `.env`), `bw.DB_PATH` to `tmp_path`, and `bw.BUILDERS` to stubs; assert
-   against `bw.DROPPED_TOPICS`. *Done:* test green, no network.
-5. **DOCS-01: reconcile docs with what's live.** `gregan.evanappel.me` already serves the app
-   (checked with curl on 2026-10-22), and gregan already has a card in enki's `data/projects.ts`.
-   Update TASKS.md DEPLOY-06 (enki card exists; custom domain live), README live-URL line, and the
-   PRD status line. Docs only, no code. *Done:* `git diff` touches only `*.md`.
+None queued. All five weekend tasks merged in PR #12: FIX-01 (warm the `tiresias.chat` import
+before the Ask-page AppTest), TEST-01 (URL/env helpers), TEST-02 (stubbed USGS/AQS/ACS fetches),
+TEST-03 (`main()` DROP logging) and DOCS-01 (live URL, custom domain, portfolio card). What is left
+waits on Evan in `BLOCKED.md` (gold-set / column-doc review, the `tiresias` WIP). Check `TASKS.md`
+and `BLOCKED.md` and ask before starting anything new.
 
 Test command for everything: `uv run pytest -q && uv run ruff check . && uv run ty check`
 (CI also runs `uv run dbt deps && uv run dbt parse --profiles-dir . --no-partial-parse`).
@@ -56,11 +38,11 @@ Test command for everything: `uv run pytest -q && uv run ruff check . && uv run 
 
 ### Do NOT
 - Deploy, merge, or push to `main`. Any merge to `main` redeploys Railway.
-- Read `.env` (never) or create/use an Anthropic key. Ask Tiresias's key is Evan's 🔴 blocker,
-  and the live gold eval (`tiresias eval` without `--retrieval-only`) needs that key.
+- Read `.env` (never) or create/use an Anthropic key. The dedicated capped key is set on Railway,
+  runtime-only (D11); the live gold eval (`tiresias eval` without `--retrieval-only`) needs it, so it is Evan's to run.
 - Run `build_warehouse.py` / `dbt build`. They fetch live sources, need `CENSUS_API_KEY` from
   `.env`, and put raw data in front of the agent. So the 18 warehouse-guarded tests,
-  `tiresias check`, `tiresias calibrate` and `tiresias eval --retrieval-only` are out of scope this weekend.
+  `tiresias check`, `tiresias calibrate` and `tiresias eval --retrieval-only` are out of scope for an autonomous session.
 - Edit `evals/tiresias_gold.yaml` verdicts or the TIRESIAS.md column-doc claims. Those need Evan to check them against the data (🟡 blocker).
 - Wire new sources (e.g. TOPIC-weather's optional in-town precip). Sources must be verified first,
   and choosing one is a design call.
