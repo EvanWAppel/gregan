@@ -150,3 +150,17 @@ Docker image. Metric registry starts empty.
   public, so the guard has to hold. A pinned tag commit keeps deploys reproducible, and
   the test stops the Docker pin drifting from the uv pin.
 - **Confirmed:** Evan, blocker triage 2026-10-23.
+
+## D13 — Pin tiresias v0.1.2; keep rejection text hidden on the public page
+
+- **Chose:** bump the tiresias pin from v0.1.1 (`0ae9123`) to v0.1.2 (`6d5de45`) in
+  `pyproject.toml` (via `uv add`), `uv.lock` and `requirements.txt`;
+  `tests/test_tiresias_pin.py` now asserts the v0.1.2 archive in all three.
+  `tiresias.yml` leaves `chat.show_rejections` unset, so the trace panel takes the
+  library default (`false`) and shows `execute: rejected (details hidden)`.
+- **Rejected:** setting `chat.show_rejections: true` (full error text, shown to
+  anonymous visitors), or staying on v0.1.1.
+- **Why:** v0.1.2's guard bans settings, environment and introspection functions
+  (`current_setting`, `getenv`, `duckdb_*`, `pragma_*` and others), and hiding the
+  rejection text keeps schema detail out of a public page.
+- **Confirmed:** pending (drafted by Claude 2026-10-24, awaiting Evan's confirmation).
