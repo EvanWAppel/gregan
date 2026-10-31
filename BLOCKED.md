@@ -1,7 +1,12 @@
 # BLOCKED — what I need from Evan
 
+> **Fleet repo (_system D-036, D-051, D-052):** gregan's blockers live in Jira as *Needs Evan*
+> tickets (component `gregan`; file with `uv run --project ~/Documents/_system sys file-blocker`);
+> `sys blockers` mirrors them into the todo dashboard. Two kinds stay here: `[sec]` blockers (the
+> security dashboard counts them only here) and anything Jira must not hold — rosters, secrets,
+> unpublished writing. Moved 2026-10-31: EA-40 (Review the Tiresias gold set and column-doc claims), EA-41 (Unmerged WIP on your local tiresias branch).
 
-- [ ] 🟡 **Review the Tiresias gold set and column-doc claims** — skim `evals/tiresias_gold.yaml` (24 drafted questions: are the "answer" ones really answerable from the marts, and the "abstain" ones really not?), and check the 17 claims in `TIRESIAS.md` → "Column-doc claims to check against the data" (each says what query confirms it). Edit `models/marts/schema.yml` directly or note corrections for Claude.
+
+
 - [x] 🔴 **Approve merging the `tiresias` PR** (merged as PR #10 on 2026-10-08) (merge = deploy on Railway). Safe before the key exists: without it the page only shows a notice.
 
-- [ ] 🟡 **Unmerged WIP on your local `tiresias` branch** — commit `929025f` (2026-10-17 snapshot, pushed to `origin/tiresias`) adds `AGENTS.md` and a CLAUDE.md ROCRLL wording tweak (worktree cleanup + "affected tests at each join, full suite before final merge"). It never reached `main`, and PR #10 already merged the rest of that branch. **To unblock:** decide: either open a PR from it (`cd ~/Documents/portfolio/geographic/gregan && gh pr create --base main --head tiresias`) or tell Claude to drop it, and then delete the branch. The weekend session will not touch it.
