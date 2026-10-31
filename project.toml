@@ -37,3 +37,15 @@ spend_cap = "yes"           # $10/month workspace cap, $9 email alert (Evan, blo
 
 [platform]
 done = []
+
+[commands]
+setup = "uv sync --dev"
+test = "uv run pytest -q"
+lint = "uv run ruff check . && uv run ty check"
+
+[fleet]                     # joined 2026-10-31 (_system D-051); also has the `fleet` topic
+component = "gregan"
+agents = ["claude", "codex"]
+default_model = "sonnet"
+default_branch = "main"
+max_minutes = 45
