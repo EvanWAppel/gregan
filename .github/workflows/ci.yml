@@ -7,6 +7,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   quality:
@@ -39,3 +40,41 @@ jobs:
 
       - name: Validate dbt project (parse)
         run: uv run dbt parse --profiles-dir . --no-partial-parse
+
+  # PLAT-DEMO-04: prove every page renders against the warehouse production uses.
+  # Builds it exactly like the Dockerfile (live public sources), so it runs on PRs
+  # and on demand rather than every push. GREGAN_REQUIRE_WAREHOUSE=1 makes the smoke
+  # test fail, not skip, if the build produced no warehouse. No ANTHROPIC_API_KEY is
+  # ever set here: the Ask page renders its no-key notice.
+  page-smoke:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Build the warehouse (as the Dockerfile does)
+        env:
+          # Free Census ACS rate-limit token (not billed) — a repo Actions secret.
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+        run: |
+          uv run dbt deps
+          uv run python build_warehouse.py
+          uv run dbt build --profiles-dir .
+          uv run dbt docs generate --profiles-dir .
+
+      - name: Smoke-test every page
+        env:
+          GREGAN_REQUIRE_WAREHOUSE: "1"
+        run: uv run pytest -q tests/test_app_smoke.py
